@@ -105,7 +105,7 @@ if (isset($_POST['login'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Login Sistem Eskul</title>
+    <title>Login Sistem Kas Kelas</title>
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -148,9 +148,6 @@ if (isset($_POST['login'])) {
 
                 <form method="POST">
 
-                    <!-- Hidden role -->
-                    <input type="hidden" name="role" value="<?= htmlspecialchars($roleDipilih) ?>">
-
                     <!-- USERNAME -->
                     <div class="mb-3">
                         <label class="form-label">Username</label>
@@ -171,24 +168,17 @@ if (isset($_POST['login'])) {
                             </span>
                             <input type="password" name="password" id="password" class="form-control" required>
                             <button type="button" class="btn btn-outline-secondary" onclick="togglePassword()">
-                            <i class="bi bi-eye" id="eyeIcon"></i>
+                                <i class="bi bi-eye" id="eyeIcon"></i>
                             </button>
                         </div>
                     </div>
 
-                    <div class="d-grid gap-3">
+                    <div class="d-grid">
                         <button class="btn btn-primary py-2 fw-semibold" name="login">
                             <i class="bi bi-box-arrow-in-right me-1"></i> Login
                         </button>
-
-                        <!-- REGISTER LINK SESUAI ROLE -->
-                            <!-- <span class="text-center fs-6">
-                                Belum punya akun?
-                                <a href="register_siswa.php" class="fw-semibold text-decoration-none">
-                                    Daftar sebagai Siswa
-                                </a>
-                            </span>                           -->
                     </div>
+
                 </form>
             </div>
 
