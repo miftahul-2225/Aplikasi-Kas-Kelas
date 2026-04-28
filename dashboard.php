@@ -1,4 +1,38 @@
+<?php
+require_once 'config/koneksi.php';
 
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'bendahara') {
+    header("Location: login.php");
+    exit();
+}
+
+// TOTAL PEMASUKAN
+$pemasukan = mysqli_fetch_assoc(mysqli_query($koneksi_db, "
+    SELECT SUM(jumlah) as total 
+    FROM tb_transaksi 
+    WHERE jenis='bayar'
+"))['total'] ?? 0;
+
+// TOTAL PENGELUARAN
+$pengeluaran = mysqli_fetch_assoc(mysqli_query($koneksi_db, "
+    SELECT SUM(jumlah) as total 
+    FROM tb_transaksi 
+    WHERE jenis='pengeluaran'
+"))['total'] ?? 0;
+
+// SALDO
+$saldo = $pemasukan - $pengeluaran;
+
+// TRANSAKSI TERBARU (JOIN ke siswa)
+$transaksi = mysqli_query($koneksi_db, "
+    SELECT t.*, s.nama_siswa 
+    FROM tb_transaksi t
+    LEFT JOIN tb_siswa s ON t.id_siswa = s.id_siswa
+    ORDER BY t.tanggal DESC
+    LIMIT 7
+");
+?>
 
 <!DOCTYPE html>
 <html lang="id">
