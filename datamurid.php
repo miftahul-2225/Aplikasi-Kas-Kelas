@@ -224,43 +224,43 @@ $total = mysqli_num_rows($data);
     </div>
 
     <nav class="sb-nav">
-        <div class="nav-item">
+        <div class="nav-item mt-1">
             <a href="dashboard.php" class="nav-link" data-tip="Dashboard">
                 <i class="nav-icon fa-solid fa-house"></i>
                 <span class="nav-label">Dashboard</span>
             </a>
         </div>
-        <div class="nav-item">
+        <div class="nav-item mt-2">
             <a href="datamurid.php" class="nav-link active" data-tip="Data Murid">
                 <i class="nav-icon fa-solid fa-users"></i>
                 <span class="nav-label">Data Murid</span>
             </a>
         </div>
-        <div class="nav-item">
+        <div class="nav-item mt-2">
             <a href="kasmasuk.php" class="nav-link" data-tip="Kas Masuk">
                 <i class="nav-icon fa-solid fa-arrow-trend-up"></i>
                 <span class="nav-label">Kas Masuk</span>
             </a>
         </div>
-        <div class="nav-item">
+        <div class="nav-item mt-2">
             <a href="kaskeluar.php" class="nav-link" data-tip="Kas Keluar">
                 <i class="nav-icon fa-solid fa-arrow-trend-down"></i>
                 <span class="nav-label">Kas Keluar</span>
             </a>
         </div>
-        <div class="nav-item">
+        <div class="nav-item mt-2">
             <a href="status.php" class="nav-link" data-tip="Status Pembayaran">
                 <i class="nav-icon fa-regular fa-circle-check"></i>
                 <span class="nav-label">Status Pembayaran</span>
             </a>
         </div>
-        <div class="nav-item">
+        <div class="nav-item mt-2">
             <a href="arus.php" class="nav-link" data-tip="Arus Kas">
                 <i class="nav-icon fa-solid fa-chart-column"></i>
                 <span class="nav-label">Arus Kas</span>
             </a>
         </div>
-        <div class="nav-item">
+        <div class="nav-item mt-2">
             <a href="laporan.php" class="nav-link" data-tip="Laporan">
                 <i class="nav-icon fa-regular fa-file-lines"></i>
                 <span class="nav-label">Laporan</span>
