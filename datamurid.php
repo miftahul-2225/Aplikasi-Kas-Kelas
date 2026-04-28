@@ -1,3 +1,30 @@
+<?php
+require_once 'config/koneksi.php';
+
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'bendahara') {
+    header("Location: login.php");
+    exit();
+}
+
+// SEARCH
+$cari = $_GET['cari'] ?? '';
+
+if ($cari) {
+    $data = mysqli_query($koneksi_db, "
+        SELECT * FROM tb_siswa 
+        WHERE nama_siswa LIKE '%$cari%'
+        OR id_siswa LIKE '%$cari%'
+        OR kelas LIKE '%$cari%'
+        ORDER BY nama_siswa ASC
+    ");
+} else {
+    $data = mysqli_query($koneksi_db, "SELECT * FROM tb_siswa ORDER BY nama_siswa ASC");
+}
+
+$total = mysqli_num_rows($data);
+?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
