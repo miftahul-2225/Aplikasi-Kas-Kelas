@@ -33,6 +33,7 @@ $transaksi = mysqli_query($koneksi_db, "
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --sb-full : 220px;
@@ -59,7 +60,6 @@ $transaksi = mysqli_query($koneksi_db, "
         }
         #sidebar.mini { width: var(--sb-mini); }
 
-        /* ── brand ── */
         .sb-brand {
             display: flex;
             align-items: center;
@@ -85,10 +85,9 @@ $transaksi = mysqli_query($koneksi_db, "
         }
         #sidebar.mini .sb-title { opacity: 0; width: 0; }
 
-        /* ── toggle arrow ── */
         .sb-toggle {
             position: absolute;
-            top: 20px; right: -8px;   /* sedikit ke kiri agar kelihatan */
+            top: 20px; right: -8px;
             width: 26px; height: 26px;
             background: #fff;
             border: 1px solid #dde2ee;
@@ -100,14 +99,12 @@ $transaksi = mysqli_query($koneksi_db, "
             transition: top var(--ease), right var(--ease), transform var(--ease);
             z-index: 10;
         }
-        /* Saat mini: pindah ke bawah icon graduation */
         #sidebar.mini .sb-toggle {
-            top: 56px;      /* tepat di bawah brand area */
-            right: 4px;     /* masuk ke dalam sidebar */
+            top: 56px;
+            right: 4px;
             transform: rotate(180deg);
         }
 
-        /* ── nav ── */
         .sb-nav {
             flex: 1;
             padding: 10px 6px;
@@ -131,7 +128,6 @@ $transaksi = mysqli_query($koneksi_db, "
         .nav-label { transition: opacity var(--ease); }
         #sidebar.mini .nav-label { opacity: 0; pointer-events: none; }
 
-        /* tooltip saat mini */
         #sidebar.mini .nav-link::after {
             content: attr(data-tip);
             position: absolute;
@@ -145,7 +141,6 @@ $transaksi = mysqli_query($koneksi_db, "
         }
         #sidebar.mini .nav-link:hover::after { opacity: 1; }
 
-        /* ── footer ── */
         .sb-footer {
             padding: 10px 8px;
             border-top: 1px solid #f0f2f7;
@@ -198,6 +193,37 @@ $transaksi = mysqli_query($koneksi_db, "
             .sb-toggle   { display: none; }
             #main        { margin-left: 0 !important; padding: 72px 16px 20px; }
         }
+
+        /* ══ CHART CARD ══ */
+        .chart-wrapper {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            margin: 0 auto;
+        }
+        .chart-center-label {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+        }
+        .chart-center-label .pct {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0d6efd;
+            line-height: 1;
+        }
+        .chart-center-label .lbl {
+            font-size: 10px;
+            color: #888;
+        }
+        .legend-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
     </style>
 </head>
 <body>
@@ -216,7 +242,6 @@ $transaksi = mysqli_query($koneksi_db, "
         <span class="sb-title">E Kas Seven</span>
     </div>
 
-    <!-- toggle arrow (desktop) -->
     <div class="sb-toggle" onclick="desktopToggle()">
         <i class="fa-solid fa-chevron-left"></i>
     </div>
@@ -318,29 +343,90 @@ $transaksi = mysqli_query($koneksi_db, "
         </div>
     </div>
 
-    <!-- TRANSAKSI -->
-    <h5 class="fw-semibold mb-3">Transaksi Terbaru</h5>
+    <!-- CHART + TRANSAKSI TERBARU -->
+    <div class="row g-4 align-items-start">
 
-    <?php while ($row = mysqli_fetch_assoc($transaksi)) : ?>
-    <div class="card border rounded-4 mb-2">
-        <div class="card-body d-flex justify-content-between align-items-center gap-3 py-3">
-            <div>
-                <p class="fw-semibold small mb-0">
-                    <?= $row['jenis'] == 'bayar'
-                        ? 'Iuran Kas - ' . htmlspecialchars($row['nama_siswa'])
-                        : 'Pengeluaran Kas' ?>
-                </p>
-                <p class="text-muted mb-0" style="font-size:12px;">
-                    <?= htmlspecialchars($row['keterangan']) ?> &bull;
-                    <?= date('d M Y', strtotime($row['tanggal'])) ?>
+        <!-- Donut Chart -->
+        <div class="col-12 col-md-4">
+            <div class="card border rounded-4 p-3">
+                <p class="fw-semibold small text-muted mb-3 text-center">Komposisi Kas</p>
+
+                <div class="chart-wrapper">
+                    <canvas id="kasChart"></canvas>
+                    <div class="chart-center-label">
+                        <?php
+                            $total_all = $pemasukan + $pengeluaran;
+                            $pct = $total_all > 0 ? round(($pemasukan / $total_all) * 100) : 0;
+                        ?>
+                        <div class="pct"><?= $pct ?>%</div>
+                        <div class="lbl">Pemasukan</div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="d-flex justify-content-center gap-4 mt-3">
+                    <div class="text-center">
+                        <div class="small text-muted mb-1">
+                            <span class="legend-dot" style="background:#198754;"></span>Pemasukan
+                        </div>
+                        <div class="fw-bold small text-success">
+                            Rp <?= number_format($pemasukan, 0, ',', '.') ?>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="small text-muted mb-1">
+                            <span class="legend-dot" style="background:#dc3545;"></span>Pengeluaran
+                        </div>
+                        <div class="fw-bold small text-danger">
+                            Rp <?= number_format($pengeluaran, 0, ',', '.') ?>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-2">
+                <p class="text-center small mb-0 text-muted">
+                    Saldo bersih:
+                    <strong class="text-primary">Rp <?= number_format($saldo, 0, ',', '.') ?></strong>
                 </p>
             </div>
-            <span class="fw-bold small <?= $row['jenis'] == 'bayar' ? 'text-success' : 'text-danger' ?>">
-                <?= $row['jenis'] == 'bayar' ? '+' : '-' ?>Rp <?= number_format($row['jumlah'], 0, ',', '.') ?>
-            </span>
         </div>
-    </div>
-    <?php endwhile; ?>
+
+        <!-- Transaksi Terbaru -->
+        <div class="col-12 col-md-8">
+            <h5 class="fw-semibold mb-3">Transaksi Terbaru</h5>
+
+            <?php while ($row = mysqli_fetch_assoc($transaksi)) : ?>
+            <div class="card border rounded-4 mb-2">
+                <div class="card-body d-flex justify-content-between align-items-center gap-3 py-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <!-- Icon indikator -->
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                             style="width:36px;height:36px;
+                                    background:<?= $row['jenis'] == 'bayar' ? '#d1fae5' : '#fee2e2' ?>;">
+                            <i class="fa-solid <?= $row['jenis'] == 'bayar' ? 'fa-arrow-down text-success' : 'fa-arrow-up text-danger' ?>"
+                               style="font-size:13px;"></i>
+                        </div>
+                        <div>
+                            <p class="fw-semibold small mb-0">
+                                <?= $row['jenis'] == 'bayar'
+                                    ? 'Iuran Kas - ' . htmlspecialchars($row['nama_siswa'])
+                                    : 'Pengeluaran Kas' ?>
+                            </p>
+                            <p class="text-muted mb-0" style="font-size:12px;">
+                                <?= htmlspecialchars($row['keterangan']) ?> &bull;
+                                <?= date('d M Y', strtotime($row['tanggal'])) ?>
+                            </p>
+                        </div>
+                    </div>
+                    <span class="fw-bold small <?= $row['jenis'] == 'bayar' ? 'text-success' : 'text-danger' ?> text-nowrap">
+                        <?= $row['jenis'] == 'bayar' ? '+' : '-' ?>Rp <?= number_format($row['jumlah'], 0, ',', '.') ?>
+                    </span>
+                </div>
+            </div>
+            <?php endwhile; ?>
+        </div>
+
+    </div><!-- end row -->
 
 </main>
 
@@ -383,6 +469,32 @@ $transaksi = mysqli_query($koneksi_db, "
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    /* ── Donut Chart ── */
+    const ctx = document.getElementById('kasChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Pemasukan', 'Pengeluaran'],
+            datasets: [{
+                data: [<?= $pemasukan ?>, <?= $pengeluaran ?>],
+                backgroundColor: ['#198754', '#dc3545'],
+                borderWidth: 0,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            cutout: '72%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ' Rp ' + Number(ctx.raw).toLocaleString('id-ID')
+                    }
+                }
+            }
+        }
+    });
+
     /* ── DESKTOP: collapse jadi icon-only ── */
     function desktopToggle() {
         document.getElementById('sidebar').classList.toggle('mini');
@@ -399,7 +511,6 @@ $transaksi = mysqli_query($koneksi_db, "
         document.getElementById('overlay').classList.remove('show');
     }
 
-    /* Tutup mobile sidebar saat link diklik */
     document.querySelectorAll('#sidebar .nav-link').forEach(link => {
         link.addEventListener('click', mobileClose);
     });
