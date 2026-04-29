@@ -32,10 +32,23 @@ $saldo = $total_masuk - $total_keluar;
  
 $q_siswa     = mysqli_query($koneksi_db, "SELECT COUNT(*) as total FROM tb_siswa");
 $total_siswa = mysqli_fetch_assoc($q_siswa)['total'];
- 
-$target_per_siswa  = 10000;
-$total_target      = $total_siswa * $target_per_siswa;
-$tunggakan         = max(0, $total_target - $total_masuk);
+
+// ── TARGET BULANAN: sama dengan arus.php (jumlah semua periode aktif) ──
+$q_periode = mysqli_query($koneksi_db, "
+    SELECT * FROM tb_periode 
+    WHERE status='aktif'
+    AND tanggal_mulai <= LAST_DAY('$tahun-$bulan-01')
+    AND tanggal_selesai >= '$tahun-$bulan-01'
+    ORDER BY tanggal_mulai ASC
+");
+
+$total_target = 0;
+while ($p = mysqli_fetch_assoc($q_periode)) {
+    $total_target += ($p['target'] ?? 10000) * $total_siswa;
+}
+
+$target_per_siswa = $total_siswa > 0 ? ($total_target / $total_siswa) : 10000;
+$tunggakan        = max(0, $total_target - $total_masuk);
  
 $q_status = mysqli_query($koneksi_db, "
     SELECT 
@@ -52,15 +65,30 @@ $q_status = mysqli_query($koneksi_db, "
  
 $lunas = 0; $sebagian = 0; $belum = 0;
 while ($row = mysqli_fetch_assoc($q_status)) {
-    if ($row['bayar'] >= $target_per_siswa)     $lunas++;
-    elseif ($row['bayar'] > 0)                  $sebagian++;
-    else                                         $belum++;
+    if ($row['bayar'] >= $target_per_siswa)  $lunas++;
+    elseif ($row['bayar'] > 0)               $sebagian++;
+    else                                      $belum++;
 }
  
-$q_total_tr    = mysqli_query($koneksi_db, "SELECT COUNT(*) as total FROM tb_transaksi WHERE MONTH(tanggal)='$bulan' AND YEAR(tanggal)='$tahun'");
+$q_total_tr = mysqli_query($koneksi_db, "
+    SELECT COUNT(*) as total FROM tb_transaksi 
+    WHERE MONTH(tanggal)='$bulan' AND YEAR(tanggal)='$tahun'
+");
 $total_transaksi = mysqli_fetch_assoc($q_total_tr)['total'];
+
+$q_jml_masuk = mysqli_query($koneksi_db, "
+    SELECT COUNT(*) as total FROM tb_transaksi 
+    WHERE jenis='bayar' AND MONTH(tanggal)='$bulan' AND YEAR(tanggal)='$tahun'
+");
+$jml_transaksi_masuk = mysqli_fetch_assoc($q_jml_masuk)['total'];
+
+$q_jml_keluar = mysqli_query($koneksi_db, "
+    SELECT COUNT(*) as total FROM tb_transaksi 
+    WHERE jenis='keluar' AND MONTH(tanggal)='$bulan' AND YEAR(tanggal)='$tahun'
+");
+$jml_transaksi_keluar = mysqli_fetch_assoc($q_jml_keluar)['total'];
  
-$q_kategori    = mysqli_query($koneksi_db, "SELECT COUNT(DISTINCT keterangan) as total FROM tb_transaksi");
+$q_kategori = mysqli_query($koneksi_db, "SELECT COUNT(DISTINCT keterangan) as total FROM tb_transaksi");
 $total_kategori = mysqli_fetch_assoc($q_kategori)['total'];
 ?>
 <!DOCTYPE html>
@@ -300,7 +328,7 @@ $total_kategori = mysqli_fetch_assoc($q_kategori)['total'];
         </div>
     </div>
  
-    <!-- STATISTIK — sama persis dengan arus.php -->
+    <!-- STATISTIK -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">
             <div class="card border rounded-4 h-100">
@@ -339,7 +367,7 @@ $total_kategori = mysqli_fetch_assoc($q_kategori)['total'];
                 <div class="card-body d-flex align-items-center gap-3">
                     <div class="bg-danger bg-opacity-10 text-danger rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
                          style="width:48px;height:48px;">
-                        <i class="fa-solid fa-chart-line fs-5"></i>
+                        <i class="bi bi-graph-down-arrow fs-5"></i>
                     </div>
                     <div>
                         <p class="text-muted small mb-0">Tunggakan Bulanan</p>
@@ -398,17 +426,13 @@ $total_kategori = mysqli_fetch_assoc($q_kategori)['total'];
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="card border rounded-3 text-center p-3">
-                        <h4 class="fw-bold text-success mb-0">
-                            <?= $total_masuk > 0 ? $lunas + $sebagian : 0 ?>
-                        </h4>
+                        <h4 class="fw-bold text-success mb-0"><?= $jml_transaksi_masuk ?></h4>
                         <small class="text-success">Pemasukan</small>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="card border rounded-3 text-center p-3">
-                        <h4 class="fw-bold text-danger mb-0">
-                            <?= $total_keluar > 0 ? 1 : 0 ?>
-                        </h4>
+                        <h4 class="fw-bold text-danger mb-0"><?= $jml_transaksi_keluar ?></h4>
                         <small class="text-danger">Pengeluaran</small>
                     </div>
                 </div>
