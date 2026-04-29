@@ -224,6 +224,16 @@ $transaksi = mysqli_query($koneksi_db, "
             display: inline-block;
             margin-right: 4px;
         }
+
+        /* ══ ANIMASI CARD ══ */
+        .card-anim {
+            opacity: 0;
+            transform: translateY(18px);
+            animation: fadeUp 0.5s ease forwards;
+        }
+        @keyframes fadeUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -316,28 +326,28 @@ $transaksi = mysqli_query($koneksi_db, "
     </div>
 
     <!-- SALDO -->
-    <div class="card text-white border-0 rounded-4 mb-4" style="background:#0d6efd;">
+    <div class="card text-white border-0 rounded-4 mb-4 card-anim" style="background:#0d6efd; animation-delay:0.1s;">
         <div class="card-body p-4">
             <p class="mb-1 opacity-75 small fw-medium">Saldo Kas Kelas</p>
-            <h2 class="fw-bold mb-0">Rp <?= number_format($saldo, 0, ',', '.') ?></h2>
+            <h2 class="fw-bold mb-0" id="animSaldo">Rp 0</h2>
         </div>
     </div>
 
     <!-- SUMMARY -->
     <div class="row g-3 mb-4">
         <div class="col-6">
-            <div class="card border rounded-4 h-100">
+            <div class="card border rounded-4 h-100 card-anim" style="animation-delay:0.2s;">
                 <div class="card-body">
                     <p class="text-muted small mb-1">Pemasukan</p>
-                    <h4 class="fw-bold text-success mb-0">Rp <?= number_format($pemasukan, 0, ',', '.') ?></h4>
+                    <h4 class="fw-bold text-success mb-0" id="animPemasukan">Rp 0</h4>
                 </div>
             </div>
         </div>
         <div class="col-6">
-            <div class="card border rounded-4 h-100">
+            <div class="card border rounded-4 h-100 card-anim" style="animation-delay:0.3s;">
                 <div class="card-body">
                     <p class="text-muted small mb-1">Pengeluaran</p>
-                    <h4 class="fw-bold text-danger mb-0">Rp <?= number_format($pengeluaran, 0, ',', '.') ?></h4>
+                    <h4 class="fw-bold text-danger mb-0" id="animPengeluaran">Rp 0</h4>
                 </div>
             </div>
         </div>
@@ -348,7 +358,7 @@ $transaksi = mysqli_query($koneksi_db, "
 
         <!-- Donut Chart -->
         <div class="col-12 col-md-4">
-            <div class="card border rounded-4 p-3">
+            <div class="card border rounded-4 p-3 card-anim" style="animation-delay:0.4s;">
                 <p class="fw-semibold small text-muted mb-3 text-center">Komposisi Kas</p>
 
                 <div class="chart-wrapper">
@@ -395,11 +405,13 @@ $transaksi = mysqli_query($koneksi_db, "
         <div class="col-12 col-md-8">
             <h5 class="fw-semibold mb-3">Transaksi Terbaru</h5>
 
-            <?php while ($row = mysqli_fetch_assoc($transaksi)) : ?>
-            <div class="card border rounded-4 mb-2">
+            <?php
+            $delay = 0.5;
+            while ($row = mysqli_fetch_assoc($transaksi)) :
+            ?>
+            <div class="card border rounded-4 mb-2 card-anim" style="animation-delay:<?= $delay ?>s;">
                 <div class="card-body d-flex justify-content-between align-items-center gap-3 py-3">
                     <div class="d-flex align-items-center gap-3">
-                        <!-- Icon indikator -->
                         <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                              style="width:36px;height:36px;
                                     background:<?= $row['jenis'] == 'bayar' ? '#d1fae5' : '#fee2e2' ?>;">
@@ -423,7 +435,10 @@ $transaksi = mysqli_query($koneksi_db, "
                     </span>
                 </div>
             </div>
-            <?php endwhile; ?>
+            <?php
+            $delay += 0.08;
+            endwhile;
+            ?>
         </div>
 
     </div><!-- end row -->
@@ -469,14 +484,50 @@ $transaksi = mysqli_query($koneksi_db, "
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    /* ── Donut Chart ── */
+    /* ══ ANIMASI COUNTER ══ */
+    function animateCounter(elementId, targetValue, duration = 1500) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+
+        const startTime = performance.now();
+
+        function easeOutQuart(t) {
+            return 1 - Math.pow(1 - t, 4);
+        }
+
+        function update(currentTime) {
+            const elapsed  = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased    = easeOutQuart(progress);
+            const current  = Math.round(targetValue * eased);
+
+            el.textContent = 'Rp ' + current.toLocaleString('id-ID');
+
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            } else {
+                el.textContent = 'Rp ' + targetValue.toLocaleString('id-ID');
+            }
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    /* Jalankan saat halaman selesai load */
+    window.addEventListener('load', () => {
+        animateCounter('animSaldo',       <?= (int)$saldo ?>,       1800);
+        animateCounter('animPemasukan',   <?= (int)$pemasukan ?>,   1500);
+        animateCounter('animPengeluaran', <?= (int)$pengeluaran ?>, 1500);
+    });
+
+    /* ══ DONUT CHART ══ */
     const ctx = document.getElementById('kasChart').getContext('2d');
     new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['Pemasukan', 'Pengeluaran'],
             datasets: [{
-                data: [<?= $pemasukan ?>, <?= $pengeluaran ?>],
+                data: [<?= (int)$pemasukan ?>, <?= (int)$pengeluaran ?>],
                 backgroundColor: ['#198754', '#dc3545'],
                 borderWidth: 0,
                 hoverOffset: 8
@@ -495,13 +546,13 @@ $transaksi = mysqli_query($koneksi_db, "
         }
     });
 
-    /* ── DESKTOP: collapse jadi icon-only ── */
+    /* ══ DESKTOP TOGGLE ══ */
     function desktopToggle() {
         document.getElementById('sidebar').classList.toggle('mini');
         document.getElementById('main').classList.toggle('expanded');
     }
 
-    /* ── MOBILE: slide sidebar ── */
+    /* ══ MOBILE SIDEBAR ══ */
     function mobileOpen() {
         document.getElementById('sidebar').classList.add('open');
         document.getElementById('overlay').classList.add('show');
