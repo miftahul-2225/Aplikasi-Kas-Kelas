@@ -32,14 +32,14 @@ function getPeriode($koneksi_db, $tanggal){
     $data = mysqli_fetch_assoc($cek);
     if ($data) return $data;
  
-    $tanggal_obj  = strtotime($tanggal);
-    $tanggal_hari = date('j', $tanggal_obj);
-    $bulan        = date('n', $tanggal_obj);
-    $tahun        = date('Y', $tanggal_obj);
-    $minggu_ke    = ceil($tanggal_hari / 7);
+    $tanggal_obj    = strtotime($tanggal);
+    $tanggal_hari   = date('j', $tanggal_obj);
+    $bulan          = date('n', $tanggal_obj);
+    $tahun          = date('Y', $tanggal_obj);
+    $minggu_ke      = ceil($tanggal_hari / 7);
     $mulai_format   = date('d M', strtotime($mulai));
     $selesai_format = date('d M', strtotime($selesai));
-    $nama_bulan   = bulanIndo($bulan);
+    $nama_bulan     = bulanIndo($bulan);
     $nama = "Minggu ke-$minggu_ke $nama_bulan $tahun ($mulai_format - $selesai_format)";
  
     $insert = mysqli_query($koneksi_db, "
@@ -79,11 +79,11 @@ while ($row = mysqli_fetch_assoc($data)) {
     $dibayar = $row['dibayar'];
  
     if ($dibayar >= $target && $target > 0) {
-        $row['status'] = 'lunas';   $lunas++;
+        $row['status'] = 'lunas';    $lunas++;
     } elseif ($dibayar > 0) {
         $row['status'] = 'sebagian'; $sebagian++;
     } else {
-        $row['status'] = 'belum';   $belum++;
+        $row['status'] = 'belum';    $belum++;
     }
     $row['target'] = $target;
     $rows[] = $row;
@@ -228,38 +228,57 @@ if (isset($_POST['simpan'])) {
         /* ══ MAIN ══ */
         #main { margin-left: var(--sb-full); min-height: 100vh; padding: 28px; transition: margin-left var(--ease); }
         #main.expanded { margin-left: var(--sb-mini); }
- 
-        /* ══ MOBILE ══ */
-        #mobile-btn {
-            display: none; position: fixed; top: 14px; left: 14px; z-index: 1060;
-            background: var(--accent); border: none; color: #fff;
-            width: 40px; height: 40px; border-radius: 10px;
-            font-size: 16px; cursor: pointer; align-items: center; justify-content: center;
-        }
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 1039; }
-        #overlay.show { display: block; }
- 
-        @media (max-width: 767.98px) {
-            #mobile-btn { display: flex; }
-            #sidebar { left: calc(-1 * var(--sb-full)); width: var(--sb-full) !important; transition: left var(--ease); }
-            #sidebar.open { left: 0; }
-            .sb-toggle { display: none; }
-            #main { margin-left: 0 !important; padding: 72px 16px 20px; }
-        }
- 
+
         /* ══ CUSTOM ══ */
         .siswa-item { cursor: pointer; transition: background .15s; }
         .siswa-item:hover { background: #e9f2ff; }
         #opsiJumlah button { border-radius: 10px; flex: 1; }
+
+        /* ══ BOTTOM NAVIGATION (Mobile Only) ══ */
+        #bottom-nav {
+            display: none;
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: 64px; background: #fff;
+            border-top: 1px solid #e8eaf0; z-index: 1050;
+            align-items: center; justify-content: space-around;
+            padding: 0 4px; box-shadow: 0 -4px 16px rgba(0,0,0,0.07);
+        }
+        .bn-item {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 3px; flex: 1; height: 100%;
+            text-decoration: none; color: #aaa; font-weight: 500;
+            transition: color .15s; padding: 6px 2px;
+        }
+        .bn-item.active { color: var(--accent); }
+        .bn-item i { font-size: 19px; }
+        .bn-item span { font-size: 9px; line-height: 1; }
+
+        .bn-add {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 3px; flex: 1; height: 100%;
+            border: none; background: none; cursor: pointer; padding: 6px 2px;
+        }
+        .bn-add .bn-add-icon {
+            width: 42px; height: 42px; background: var(--accent);
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 18px; color: #fff;
+            box-shadow: 0 4px 14px rgba(13,110,253,0.40);
+            transition: transform .15s, box-shadow .15s;
+        }
+        .bn-add:active .bn-add-icon { transform: scale(0.92); box-shadow: 0 2px 6px rgba(13,110,253,0.3); }
+        .bn-add .bn-add-label { font-size: 9px; color: #aaa; line-height: 1; }
+
+        /* ══ MOBILE ══ */
+        @media (max-width: 767.98px) {
+            #sidebar    { display: none !important; }
+            #mobile-btn { display: none !important; }
+            #overlay    { display: none !important; }
+            #main { margin-left: 0 !important; padding: 20px 16px 84px; }
+            #bottom-nav { display: flex !important; }
+        }
     </style>
 </head>
 <body>
- 
-<!-- MOBILE BUTTON -->
-<button id="mobile-btn" onclick="mobileOpen()">
-    <i class="fa-solid fa-bars"></i>
-</button>
-<div id="overlay" onclick="mobileClose()"></div>
  
 <!-- ══ SIDEBAR ══ -->
 <div id="sidebar">
@@ -318,15 +337,11 @@ if (isset($_POST['simpan'])) {
     </nav>
  
     <div class="sb-footer">
-        <button class="sb-btn primary"
-                data-bs-toggle="modal"
-                data-bs-target="#modalTransaksi">
+        <button class="sb-btn primary" data-bs-toggle="modal" data-bs-target="#modalTransaksi">
             <span class="sb-btn-icon"><i class="fa-solid fa-plus"></i></span>
             <span class="sb-btn-label">Tambah Transaksi</span>
         </button>
-        <a href="logout.php"
-           onclick="return confirm('Yakin ingin logout?')"
-           class="sb-btn danger">
+        <a href="logout.php" onclick="return confirm('Yakin ingin logout?')" class="sb-btn danger">
             <span class="sb-btn-icon"><i class="fa-solid fa-right-from-bracket"></i></span>
             <span class="sb-btn-label">Keluar</span>
         </a>
@@ -378,14 +393,14 @@ if (isset($_POST['simpan'])) {
             <h6 class="fw-semibold mb-4">Status Pembayaran Kas</h6>
  
             <?php foreach ($rows as $row):
-                $target    = $row['target'] ?? 10000;
-                $dibayar   = $row['dibayar'];
-                $persen    = $target > 0 ? min(($dibayar / $target) * 100, 100) : 0;
+                $target     = $row['target'] ?? 10000;
+                $dibayar    = $row['dibayar'];
+                $persen     = $target > 0 ? min(($dibayar / $target) * 100, 100) : 0;
                 $kekurangan = $target - $dibayar;
  
-                if ($row['status'] == 'lunas')    { $warna = 'success'; $label = 'Lunas';       $persen = 100; }
-                elseif ($row['status'] == 'sebagian') { $warna = 'warning'; $label = 'Sebagian'; }
-                else                              { $warna = 'danger';  $label = 'Belum Bayar'; }
+                if ($row['status'] == 'lunas')         { $warna = 'success'; $label = 'Lunas';       $persen = 100; }
+                elseif ($row['status'] == 'sebagian')  { $warna = 'warning'; $label = 'Sebagian'; }
+                else                                   { $warna = 'danger';  $label = 'Belum Bayar'; }
             ?>
             <div class="card border rounded-4 mb-3">
                 <div class="card-body p-3">
@@ -431,6 +446,38 @@ if (isset($_POST['simpan'])) {
     </div>
  
 </main>
+
+<!-- ══ BOTTOM NAVIGATION (Mobile Only) ══ -->
+<div id="bottom-nav">
+    <a href="dashboard.php" class="bn-item">
+        <i class="fa-solid fa-house"></i>
+        <span>Dashboard</span>
+    </a>
+    <a href="datamurid.php" class="bn-item">
+        <i class="fa-solid fa-users"></i>
+        <span>Murid</span>
+    </a>
+    <a href="status.php" class="bn-item active">
+        <i class="fa-regular fa-circle-check"></i>
+        <span>Status</span>
+    </a>
+    <button class="bn-add" data-bs-toggle="modal" data-bs-target="#modalTransaksi">
+        <div class="bn-add-icon"><i class="fa-solid fa-plus"></i></div>
+        <span class="bn-add-label">Tambah</span>
+    </button>
+    <a href="arus.php" class="bn-item">
+        <i class="fa-solid fa-chart-column"></i>
+        <span>Arus Kas</span>
+    </a>
+    <a href="laporan.php" class="bn-item">
+        <i class="fa-regular fa-file-lines"></i>
+        <span>Laporan</span>
+    </a>
+    <a href="logout.php" onclick="return confirm('Yakin ingin logout?')" class="bn-item">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span>Keluar</span>
+    </a>
+</div>
  
 <!-- ══ MODAL INPUT PEMBAYARAN ══ -->
 <div class="modal fade" id="modalBayar" tabindex="-1">
@@ -563,17 +610,6 @@ if (isset($_POST['simpan'])) {
         document.getElementById('sidebar').classList.toggle('mini');
         document.getElementById('main').classList.toggle('expanded');
     }
-    function mobileOpen() {
-        document.getElementById('sidebar').classList.add('open');
-        document.getElementById('overlay').classList.add('show');
-    }
-    function mobileClose() {
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('overlay').classList.remove('show');
-    }
-    document.querySelectorAll('#sidebar .nav-link').forEach(link => {
-        link.addEventListener('click', mobileClose);
-    });
  
     /* ── MODAL BAYAR ── */
     const btn          = document.getElementById('dropdownBtn');
@@ -588,8 +624,8 @@ if (isset($_POST['simpan'])) {
     const modalBayar   = document.getElementById('modalBayar');
  
     function resetModal() {
-        text.innerText  = "Pilih siswa...";
-        inputId.value   = "";
+        text.innerText    = "Pilih siswa...";
+        inputId.value     = "";
         inputJumlah.value = "";
         infoIuran.classList.add('d-none');
         opsiJumlah.classList.add('d-none');
@@ -613,8 +649,8 @@ if (isset($_POST['simpan'])) {
  
     document.querySelectorAll('.siswa-item').forEach(item => {
         item.addEventListener('click', () => {
-            text.innerText  = item.dataset.nama;
-            inputId.value   = item.dataset.id;
+            text.innerText = item.dataset.nama;
+            inputId.value  = item.dataset.id;
             list.classList.add('d-none');
             infoIuran.classList.remove('d-none');
             opsiJumlah.classList.remove('d-none');
