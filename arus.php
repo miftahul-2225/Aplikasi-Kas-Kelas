@@ -147,33 +147,52 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
         /* ══ MAIN ══ */
         #main { margin-left: var(--sb-full); min-height: 100vh; padding: 28px; transition: margin-left var(--ease); }
         #main.expanded { margin-left: var(--sb-mini); }
- 
-        /* ══ MOBILE ══ */
-        #mobile-btn {
-            display: none; position: fixed; top: 14px; left: 14px; z-index: 1060;
-            background: var(--accent); border: none; color: #fff;
-            width: 40px; height: 40px; border-radius: 10px;
-            font-size: 16px; cursor: pointer; align-items: center; justify-content: center;
+
+        /* ══ BOTTOM NAVIGATION (Mobile Only) ══ */
+        #bottom-nav {
+            display: none;
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: 64px; background: #fff;
+            border-top: 1px solid #e8eaf0; z-index: 1050;
+            align-items: center; justify-content: space-around;
+            padding: 0 4px; box-shadow: 0 -4px 16px rgba(0,0,0,0.07);
         }
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 1039; }
-        #overlay.show { display: block; }
- 
+        .bn-item {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 3px; flex: 1; height: 100%;
+            text-decoration: none; color: #aaa; font-weight: 500;
+            transition: color .15s; padding: 6px 2px;
+        }
+        .bn-item.active { color: var(--accent); }
+        .bn-item i { font-size: 19px; }
+        .bn-item span { font-size: 9px; line-height: 1; }
+
+        .bn-add {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 3px; flex: 1; height: 100%;
+            border: none; background: none; cursor: pointer; padding: 6px 2px;
+        }
+        .bn-add .bn-add-icon {
+            width: 42px; height: 42px; background: var(--accent);
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 18px; color: #fff;
+            box-shadow: 0 4px 14px rgba(13,110,253,0.40);
+            transition: transform .15s, box-shadow .15s;
+        }
+        .bn-add:active .bn-add-icon { transform: scale(0.92); box-shadow: 0 2px 6px rgba(13,110,253,0.3); }
+        .bn-add .bn-add-label { font-size: 9px; color: #aaa; line-height: 1; }
+
+        /* ══ MOBILE ══ */
         @media (max-width: 767.98px) {
-            #mobile-btn { display: flex; }
-            #sidebar { left: calc(-1 * var(--sb-full)); width: var(--sb-full) !important; transition: left var(--ease); }
-            #sidebar.open { left: 0; }
-            .sb-toggle { display: none; }
-            #main { margin-left: 0 !important; padding: 72px 16px 20px; }
+            #sidebar    { display: none !important; }
+            #mobile-btn { display: none !important; }
+            #overlay    { display: none !important; }
+            #main { margin-left: 0 !important; padding: 20px 16px 84px; }
+            #bottom-nav { display: flex !important; }
         }
     </style>
 </head>
 <body>
- 
-<!-- MOBILE BUTTON -->
-<button id="mobile-btn" onclick="mobileOpen()">
-    <i class="fa-solid fa-bars"></i>
-</button>
-<div id="overlay" onclick="mobileClose()"></div>
  
 <!-- ══ SIDEBAR ══ -->
 <div id="sidebar">
@@ -232,15 +251,11 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
     </nav>
  
     <div class="sb-footer">
-        <button class="sb-btn primary"
-                data-bs-toggle="modal"
-                data-bs-target="#modalTransaksi">
+        <button class="sb-btn primary" data-bs-toggle="modal" data-bs-target="#modalTransaksi">
             <span class="sb-btn-icon"><i class="fa-solid fa-plus"></i></span>
             <span class="sb-btn-label">Tambah Transaksi</span>
         </button>
-        <a href="logout.php"
-           onclick="return confirm('Yakin ingin logout?')"
-           class="sb-btn danger">
+        <a href="logout.php" onclick="return confirm('Yakin ingin logout?')" class="sb-btn danger">
             <span class="sb-btn-icon"><i class="fa-solid fa-right-from-bracket"></i></span>
             <span class="sb-btn-label">Keluar</span>
         </a>
@@ -353,10 +368,10 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
  
     <div class="row g-4">
     <?php foreach ($periode_list as $p):
-        $id_periode  = $p['id_periode'];
-        $total       = isset($data_bayar[$id_periode]) ? array_sum($data_bayar[$id_periode]) : 0;
+        $id_periode   = $p['id_periode'];
+        $total        = isset($data_bayar[$id_periode]) ? array_sum($data_bayar[$id_periode]) : 0;
         $target_total = ($p['target'] ?? 10000) * $total_siswa;
-        $persen      = $target_total > 0 ? min(($total / $target_total) * 100, 100) : 0;
+        $persen       = $target_total > 0 ? min(($total / $target_total) * 100, 100) : 0;
     ?>
     <div class="col-md-6">
         <div class="card border-0 rounded-4 overflow-hidden shadow-sm">
@@ -396,10 +411,10 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             <div class="p-3 border-bottom bg-white">
                 <div class="d-flex gap-2 flex-wrap">
                     <select onchange="updateFilter()" id="filterStatus" class="form-select form-select-sm w-auto">
-                        <option value="all"    <?= $filter=='all'     ? 'selected':'' ?>>Semua</option>
-                        <option value="lunas"  <?= $filter=='lunas'   ? 'selected':'' ?>>Lunas</option>
-                        <option value="sebagian" <?= $filter=='sebagian'? 'selected':'' ?>>Sebagian</option>
-                        <option value="belum"  <?= $filter=='belum'   ? 'selected':'' ?>>Belum</option>
+                        <option value="all"      <?= $filter=='all'      ? 'selected':'' ?>>Semua</option>
+                        <option value="lunas"    <?= $filter=='lunas'    ? 'selected':'' ?>>Lunas</option>
+                        <option value="sebagian" <?= $filter=='sebagian' ? 'selected':'' ?>>Sebagian</option>
+                        <option value="belum"    <?= $filter=='belum'    ? 'selected':'' ?>>Belum</option>
                     </select>
                     <select onchange="updateFilter()" id="limitData" class="form-select form-select-sm w-auto">
                         <option value="10" <?= $limit==10 ? 'selected':'' ?>>10</option>
@@ -407,9 +422,9 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                         <option value="33" <?= $limit==33 ? 'selected':'' ?>>33</option>
                     </select>
                     <select onchange="updateFilter()" id="sortData" class="form-select form-select-sm w-auto">
-                        <option value="nama"      <?= $sort=='nama'      ? 'selected':'' ?>>Nama</option>
-                        <option value="bayar_desc" <?= $sort=='bayar_desc'? 'selected':'' ?>>Terbesar</option>
-                        <option value="bayar_asc"  <?= $sort=='bayar_asc' ? 'selected':'' ?>>Terkecil</option>
+                        <option value="nama"       <?= $sort=='nama'       ? 'selected':'' ?>>Nama</option>
+                        <option value="bayar_desc" <?= $sort=='bayar_desc' ? 'selected':'' ?>>Terbesar</option>
+                        <option value="bayar_asc"  <?= $sort=='bayar_asc'  ? 'selected':'' ?>>Terkecil</option>
                     </select>
                 </div>
             </div>
@@ -423,9 +438,9 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                     $bayar  = $data_bayar[$id_periode][$s['id_siswa']] ?? 0;
                     $target = $p['target'] ?? 10000;
  
-                    if ($bayar >= $target)      { $status='lunas';    $warna='success'; $icon='check-circle'; }
-                    elseif ($bayar > 0)         { $status='sebagian'; $warna='warning'; $icon='exclamation-circle'; }
-                    else                        { $status='belum';    $warna='danger';  $icon='times-circle'; }
+                    if ($bayar >= $target)  { $status='lunas';    $warna='success'; $icon='check-circle'; }
+                    elseif ($bayar > 0)     { $status='sebagian'; $warna='warning'; $icon='exclamation-circle'; }
+                    else                    { $status='belum';    $warna='danger';  $icon='times-circle'; }
  
                     if ($filter != 'all' && $status != $filter) continue;
  
@@ -436,9 +451,9 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                     $data_siswa[] = $s;
                 }
  
-                if ($sort == 'bayar_desc')     usort($data_siswa, fn($a,$b) => $b['bayar'] <=> $a['bayar']);
-                elseif ($sort == 'bayar_asc')  usort($data_siswa, fn($a,$b) => $a['bayar'] <=> $b['bayar']);
-                else                           usort($data_siswa, fn($a,$b) => strcmp($a['nama_siswa'], $b['nama_siswa']));
+                if ($sort == 'bayar_desc')    usort($data_siswa, fn($a,$b) => $b['bayar'] <=> $a['bayar']);
+                elseif ($sort == 'bayar_asc') usort($data_siswa, fn($a,$b) => $a['bayar'] <=> $b['bayar']);
+                else                          usort($data_siswa, fn($a,$b) => strcmp($a['nama_siswa'], $b['nama_siswa']));
  
                 $data_siswa = array_slice($data_siswa, 0, $limit);
  
@@ -471,6 +486,38 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
     </div>
  
 </main>
+
+<!-- ══ BOTTOM NAVIGATION (Mobile Only) ══ -->
+<div id="bottom-nav">
+    <a href="dashboard.php" class="bn-item">
+        <i class="fa-solid fa-house"></i>
+        <span>Dashboard</span>
+    </a>
+    <a href="datamurid.php" class="bn-item">
+        <i class="fa-solid fa-users"></i>
+        <span>Murid</span>
+    </a>
+    <a href="status.php" class="bn-item">
+        <i class="fa-regular fa-circle-check"></i>
+        <span>Status</span>
+    </a>
+    <button class="bn-add" data-bs-toggle="modal" data-bs-target="#modalTransaksi">
+        <div class="bn-add-icon"><i class="fa-solid fa-plus"></i></div>
+        <span class="bn-add-label">Tambah</span>
+    </button>
+    <a href="arus.php" class="bn-item active">
+        <i class="fa-solid fa-chart-column"></i>
+        <span>Arus Kas</span>
+    </a>
+    <a href="laporan.php" class="bn-item">
+        <i class="fa-regular fa-file-lines"></i>
+        <span>Laporan</span>
+    </a>
+    <a href="logout.php" onclick="return confirm('Yakin ingin logout?')" class="bn-item">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span>Keluar</span>
+    </a>
+</div>
  
 <!-- ══ MODAL TRANSAKSI ══ -->
 <div class="modal fade" id="modalTransaksi" tabindex="-1">
@@ -516,17 +563,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
         document.getElementById('sidebar').classList.toggle('mini');
         document.getElementById('main').classList.toggle('expanded');
     }
-    function mobileOpen() {
-        document.getElementById('sidebar').classList.add('open');
-        document.getElementById('overlay').classList.add('show');
-    }
-    function mobileClose() {
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('overlay').classList.remove('show');
-    }
-    document.querySelectorAll('#sidebar .nav-link').forEach(link => {
-        link.addEventListener('click', mobileClose);
-    });
  
     /* ── KALENDER ── */
     const monthNames = ["Januari","Februari","Maret","April","Mei","Juni",
