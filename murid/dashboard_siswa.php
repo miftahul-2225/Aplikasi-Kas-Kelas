@@ -24,8 +24,6 @@ if (!$siswa) {
 }
 
 // ── AMBIL RIWAYAT TRANSAKSI SISWA ──
-// Kolom tb_transaksi: id_transaksi, id_siswa, tanggal, jenis, jumlah, keterangan, id_user, id_periode
-// Kolom tb_periode  : id_periode, nama_periode, minggu_ke, tahun, tanggal_mulai, tanggal_selesai, status, target
 $stmt2 = mysqli_prepare($koneksi_db, "
     SELECT tr.id_transaksi, tr.tanggal, tr.jenis, tr.jumlah, tr.keterangan,
            p.nama_periode, p.minggu_ke, p.tahun
@@ -41,7 +39,7 @@ $result_transaksi = mysqli_stmt_get_result($stmt2);
 
 $transaksi_list = [];
 $total_bayar    = 0;
-$total_minggu   = 0; // jumlah periode/minggu yang sudah dibayar
+$total_minggu   = 0;
 
 while ($row = mysqli_fetch_assoc($result_transaksi)) {
     $transaksi_list[] = $row;
@@ -51,17 +49,18 @@ while ($row = mysqli_fetch_assoc($result_transaksi)) {
     }
 }
 
-// ── AMBIL TARGET KAS PER MINGGU (dari periode aktif) ──
+// ── TARGET KAS PER MINGGU ──
 $q_target = mysqli_query($koneksi_db, "SELECT target FROM tb_periode WHERE status = 'aktif' LIMIT 1");
 $target_per_minggu = 0;
 if ($q_target && $row_t = mysqli_fetch_assoc($q_target)) {
     $target_per_minggu = $row_t['target'];
 }
 
-// ── FORMAT RUPIAH ──
 function rupiah($angka) {
     return 'Rp ' . number_format($angka, 0, ',', '.');
 }
+
+$initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -74,120 +73,396 @@ function rupiah($angka) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
-        body { background-color: #f0f4f8; min-height: 100vh; }
+        :root {
+            --sidebar-w: 240px;
+            --topbar-h:  64px;
+            --blue:      #0d6efd;
+            --blue-dark: #0b5ed7;
+        }
 
-        /* NAVBAR */
-        .navbar-kas {
-            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
-            padding: 14px 24px;
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #f0f4f8; font-family: 'Segoe UI', sans-serif; }
+
+        /* ══════════════════════════════
+           SIDEBAR
+        ══════════════════════════════ */
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: var(--sidebar-w);
+            height: 100vh;
+            background: #fff;
+            border-right: 1px solid #e9ecef;
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            transition: transform .3s ease;
         }
-        .navbar-kas .brand {
-            font-size: 1.1rem; font-weight: 700; color: #fff;
-            display: flex; align-items: center; gap: 8px;
+
+        .sidebar-brand {
+            height: var(--topbar-h);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 20px;
+            border-bottom: 1px solid #e9ecef;
+            text-decoration: none;
         }
-        .navbar-kas .user-info {
-            display: flex; align-items: center; gap: 8px;
-        }
-        .navbar-kas .avatar {
-            width: 36px; height: 36px; border-radius: 50%;
-            background: rgba(255,255,255,.25);
+
+        .sidebar-brand .brand-icon {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--blue), var(--blue-dark));
             display: flex; align-items: center; justify-content: center;
-            font-size: 16px; font-weight: 700; color: #fff;
+            color: #fff; font-size: 18px; flex-shrink: 0;
         }
 
-        /* STAT CARDS */
+        .sidebar-brand .brand-name {
+            font-size: .95rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 12px;
+            overflow-y: auto;
+        }
+
+        .nav-label {
+            font-size: .68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #94a3b8;
+            padding: 0 8px;
+            margin: 12px 0 6px;
+        }
+
+        .nav-item-kas {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: .875rem;
+            color: #475569;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background .15s, color .15s;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .nav-item-kas:hover {
+            background: #f1f5f9;
+            color: var(--blue);
+        }
+
+        .nav-item-kas.active {
+            background: #eff6ff;
+            color: var(--blue);
+            font-weight: 600;
+        }
+
+        .nav-item-kas i {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .btn-logout-side {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: .875rem;
+            color: #ef4444;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background .15s;
+            width: 100%;
+            border: none;
+            background: none;
+        }
+
+        .btn-logout-side:hover {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        /* ══════════════════════════════
+           TOPBAR
+        ══════════════════════════════ */
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: var(--sidebar-w);
+            right: 0;
+            height: var(--topbar-h);
+            background: #fff;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 999;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        }
+
+        .topbar-left .page-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .topbar-left .page-sub {
+            font-size: .74rem;
+            color: #94a3b8;
+        }
+
+        .topbar-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #64748b;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .topbar-toggle:hover { background: #f1f5f9; }
+
+        /* User info di topbar */
+        .topbar-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .topbar-avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 15px; font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .topbar-user-name {
+            font-size: .875rem;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.2;
+        }
+
+        .topbar-user-role {
+            font-size: .72rem;
+            color: #94a3b8;
+        }
+
+        /* ══════════════════════════════
+           MAIN CONTENT
+        ══════════════════════════════ */
+        .main-content {
+            margin-left: var(--sidebar-w);
+            margin-top: var(--topbar-h);
+            padding: 24px;
+            min-height: calc(100vh - var(--topbar-h));
+        }
+
+        /* ── STAT CARDS ── */
         .stat-card {
             border-radius: 1rem; border: none;
             padding: 18px 20px; display: flex; align-items: center; gap: 14px;
-            box-shadow: 0 2px 12px rgba(0,0,0,.07); height: 100%;
+            box-shadow: 0 2px 12px rgba(0,0,0,.06); height: 100%;
+            background: #fff;
         }
         .stat-icon {
             width: 48px; height: 48px; border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
             font-size: 22px; flex-shrink: 0;
         }
-        .stat-label { font-size: .74rem; color: #6c757d; margin-bottom: 2px; }
+        .stat-label { font-size: .73rem; color: #64748b; margin-bottom: 2px; }
         .stat-value { font-size: 1.05rem; font-weight: 700; line-height: 1.2; }
 
-        /* SECTION CARDS */
+        /* ── SECTION CARDS ── */
         .section-card {
             border-radius: 1rem; border: none;
-            box-shadow: 0 2px 12px rgba(0,0,0,.07);
+            box-shadow: 0 2px 12px rgba(0,0,0,.06); background: #fff;
         }
         .section-card .card-header {
-            background: #fff; border-bottom: 1px solid #e9ecef;
+            background: #fff; border-bottom: 1px solid #f1f5f9;
             border-radius: 1rem 1rem 0 0 !important;
             padding: 14px 18px; font-weight: 600; font-size: .9rem;
-            display: flex; align-items: center; gap: 8px;
+            display: flex; align-items: center; gap: 8px; color: #1e293b;
         }
 
-        /* PROFIL */
+        /* ── PROFIL ── */
         .profil-avatar {
-            width: 60px; height: 60px; border-radius: 50%;
-            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+            width: 58px; height: 58px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--blue), var(--blue-dark));
             display: flex; align-items: center; justify-content: center;
-            font-size: 26px; color: #fff; font-weight: 700;
+            font-size: 24px; color: #fff; font-weight: 700;
         }
-        .info-label { font-size: .75rem; color: #6c757d; }
-        .info-value { font-size: .88rem; font-weight: 500; }
+        .info-label { font-size: .73rem; color: #94a3b8; margin-bottom: 1px; }
+        .info-value { font-size: .875rem; font-weight: 500; color: #1e293b; }
 
-        /* TABLE */
+        /* ── TABLE ── */
         .table-kas th {
-            font-size: .74rem; text-transform: uppercase;
-            letter-spacing: .04em; color: #6c757d;
-            font-weight: 600; background: #f8f9fa; white-space: nowrap;
+            font-size: .72rem; text-transform: uppercase;
+            letter-spacing: .04em; color: #94a3b8;
+            font-weight: 600; background: #f8fafc; white-space: nowrap;
+            border-bottom: 1px solid #f1f5f9 !important;
         }
-        .table-kas td { font-size: .855rem; vertical-align: middle; }
+        .table-kas td {
+            font-size: .855rem; vertical-align: middle;
+            border-bottom: 1px solid #f8fafc !important; color: #334155;
+        }
+        .table-kas tbody tr:hover { background: #f8fafc; }
 
         /* BADGE */
-        .badge-bayar     { background: #d1fae5; color: #065f46; }
+        .badge-bayar       { background: #d1fae5; color: #065f46; }
         .badge-pengeluaran { background: #ede9fe; color: #5b21b6; }
 
         /* EMPTY */
-        .empty-state { text-align: center; padding: 36px 20px; color: #adb5bd; }
-        .empty-state i { font-size: 36px; margin-bottom: 8px; display: block; }
+        .empty-state { text-align: center; padding: 40px 20px; color: #cbd5e1; }
+        .empty-state i { font-size: 38px; margin-bottom: 10px; display: block; }
+        .empty-state p { font-size: .85rem; margin: 0; }
 
-        /* LOGOUT */
-        .btn-logout {
-            background: transparent; border: 1px solid rgba(255,255,255,.4);
-            color: #fff; font-size: .82rem; padding: 5px 13px;
-            border-radius: 8px; text-decoration: none; transition: background .2s;
+        /* OVERLAY mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.4);
+            z-index: 999;
         }
-        .btn-logout:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+        /* ══════════════════════════════
+           RESPONSIVE
+        ══════════════════════════════ */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .sidebar-overlay.open {
+                display: block;
+            }
+            .topbar {
+                left: 0;
+            }
+            .topbar-toggle {
+                display: block;
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+            }
+            .topbar-user-name,
+            .topbar-user-role {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
-<nav class="navbar-kas d-flex justify-content-between align-items-center">
-    <div class="brand">
-        <i class="bi bi-shield-lock"></i> E Kas Seven
-    </div>
-    <div class="d-flex align-items-center gap-3">
-        <div class="user-info">
-            <div class="avatar"><?= strtoupper(substr($siswa['nama_siswa'], 0, 1)) ?></div>
-            <div>
-                <div style="font-weight:600;color:#fff;font-size:.88rem; line-height:1.2;">
-                    <?= htmlspecialchars($siswa['nama_siswa']) ?>
-                </div>
-                <div style="font-size:.74rem;color:rgba(255,255,255,.75);">
-                    <?= htmlspecialchars($siswa['kelas']) ?>
-                </div>
-            </div>
+<!-- ══════════════════════════════
+     SIDEBAR
+══════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+
+    <!-- Brand -->
+    <a class="sidebar-brand" href="#">
+        <div class="brand-icon">
+            <i class="bi bi-mortarboard-fill"></i>
         </div>
-        <a href="../logout.php" class="btn-logout">
-            <i class="bi bi-box-arrow-right me-1"></i> Keluar
+        <span class="brand-name">E Kas Seven</span>
+    </a>
+
+    <!-- Nav -->
+    <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+
+        <a class="nav-item-kas active" href="dashboard_siswa.php">
+            <i class="bi bi-house-door-fill"></i>
+            Dashboard
+        </a>
+
+        <a class="nav-item-kas" href="profil_siswa.php">
+            <i class="bi bi-person-circle"></i>
+            Profil Saya
+        </a>
+
+        <div class="nav-label">Kas</div>
+
+        <a class="nav-item-kas" href="riwayat_bayar.php">
+            <i class="bi bi-clock-history"></i>
+            Riwayat Bayar
+        </a>
+
+        <a class="nav-item-kas" href="status_bayar.php">
+            <i class="bi bi-patch-check"></i>
+            Status Pembayaran
+        </a>
+
+    </nav>
+
+    <!-- Footer Logout -->
+    <div class="sidebar-footer">
+        <a href="../logout.php" class="btn-logout-side">
+            <i class="bi bi-box-arrow-left"></i>
+            Keluar
         </a>
     </div>
-</nav>
 
-<div class="container py-4">
+</aside>
+
+<!-- Overlay mobile -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<header class="topbar">
+    <div class="d-flex align-items-center gap-3">
+        <button class="topbar-toggle" id="sidebarToggle">
+            <i class="bi bi-list"></i>
+        </button>
+        <div class="topbar-left">
+            <div class="page-title">Dashboard</div>
+            <div class="page-sub">Selamat datang, <?= htmlspecialchars(explode(' ', $siswa['nama_siswa'])[0]) ?></div>
+        </div>
+    </div>
+
+    <div class="topbar-user">
+        <div class="topbar-avatar"><?= $initial ?></div>
+        <div>
+            <div class="topbar-user-name"><?= htmlspecialchars($siswa['nama_siswa']) ?></div>
+            <div class="topbar-user-role"><?= htmlspecialchars($siswa['kelas']) ?></div>
+        </div>
+    </div>
+</header>
+
+<main class="main-content">
 
     <!-- STAT CARDS -->
     <div class="row g-3 mb-4">
 
-        <div class="col-6 col-md-3">
-            <div class="stat-card bg-white">
+        <div class="col-6 col-xl-3">
+            <div class="stat-card">
                 <div class="stat-icon" style="background:#eff6ff;">
                     <i class="bi bi-cash-coin" style="color:#0d6efd;"></i>
                 </div>
@@ -198,8 +473,8 @@ function rupiah($angka) {
             </div>
         </div>
 
-        <div class="col-6 col-md-3">
-            <div class="stat-card bg-white">
+        <div class="col-6 col-xl-3">
+            <div class="stat-card">
                 <div class="stat-icon" style="background:#d1fae5;">
                     <i class="bi bi-calendar-check" style="color:#059669;"></i>
                 </div>
@@ -210,20 +485,20 @@ function rupiah($angka) {
             </div>
         </div>
 
-        <div class="col-6 col-md-3">
-            <div class="stat-card bg-white">
+        <div class="col-6 col-xl-3">
+            <div class="stat-card">
                 <div class="stat-icon" style="background:#fef9c3;">
                     <i class="bi bi-wallet2" style="color:#d97706;"></i>
                 </div>
                 <div>
-                    <div class="stat-label">Kas/Minggu</div>
+                    <div class="stat-label">Kas / Minggu</div>
                     <div class="stat-value" style="color:#d97706;"><?= rupiah($target_per_minggu) ?></div>
                 </div>
             </div>
         </div>
 
-        <div class="col-6 col-md-3">
-            <div class="stat-card bg-white">
+        <div class="col-6 col-xl-3">
+            <div class="stat-card">
                 <div class="stat-icon" style="background:#fce7f3;">
                     <i class="bi bi-receipt-cutoff" style="color:#db2777;"></i>
                 </div>
@@ -236,74 +511,67 @@ function rupiah($angka) {
 
     </div>
 
+    <!-- ROW: Profil + Transaksi -->
     <div class="row g-3">
 
-        <!-- KOLOM KIRI: Profil -->
+        <!-- Profil -->
         <div class="col-lg-4">
-            <div class="card section-card">
+            <div class="section-card h-100">
                 <div class="card-header">
                     <i class="bi bi-person-circle text-primary"></i> Profil Siswa
                 </div>
                 <div class="card-body p-3">
-
-                    <!-- Avatar + Nama -->
                     <div class="d-flex align-items-center gap-3 mb-3">
-                        <div class="profil-avatar">
-                            <?= strtoupper(substr($siswa['nama_siswa'], 0, 1)) ?>
-                        </div>
+                        <div class="profil-avatar"><?= $initial ?></div>
                         <div>
-                            <div class="fw-semibold" style="font-size:.92rem; line-height:1.3;">
+                            <div class="fw-semibold" style="font-size:.92rem; color:#1e293b;">
                                 <?= htmlspecialchars($siswa['nama_siswa']) ?>
                             </div>
                             <div class="text-muted" style="font-size:.78rem;">
                                 <?= htmlspecialchars($siswa['kelas']) ?>
                             </div>
                             <span class="badge rounded-pill mt-1"
-                                style="background:#d1fae5;color:#065f46;font-size:.7rem;">
-                                <i class="bi bi-circle-fill me-1" style="font-size:.45rem;"></i>
+                                style="background:#d1fae5;color:#065f46;font-size:.68rem;">
+                                <i class="bi bi-circle-fill me-1" style="font-size:.4rem;"></i>
                                 <?= ucfirst(htmlspecialchars($siswa['status'])) ?>
                             </span>
                         </div>
                     </div>
 
-                    <hr class="my-2">
+                    <hr class="my-2" style="border-color:#f1f5f9;">
 
                     <div class="mb-2">
                         <div class="info-label">ID Siswa</div>
                         <div class="info-value"><?= htmlspecialchars($siswa['id_siswa']) ?></div>
                     </div>
-                    <div>
+                    <div class="mb-3">
                         <div class="info-label">Alamat</div>
                         <div class="info-value"><?= htmlspecialchars($siswa['alamat']) ?></div>
                     </div>
 
-                    <hr class="my-3">
-
-                    <!-- Info login -->
-                    <div class="rounded-3 p-2" style="background:#eff6ff;font-size:.76rem;color:#1d4ed8;">
+                    <div class="rounded-3 p-2" style="background:#eff6ff;font-size:.75rem;color:#1d4ed8;">
                         <i class="bi bi-info-circle me-1"></i>
                         Password login Anda adalah <strong>ID Siswa</strong> Anda.
                     </div>
-
                 </div>
             </div>
         </div>
 
-        <!-- KOLOM KANAN: Riwayat Transaksi -->
+        <!-- Riwayat Transaksi -->
         <div class="col-lg-8">
-            <div class="card section-card">
+            <div class="section-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span>
                         <i class="bi bi-clock-history text-primary"></i> Riwayat Transaksi Kas
                     </span>
-                    <span class="badge bg-primary rounded-pill" style="font-size:.7rem;">
+                    <span class="badge bg-primary rounded-pill" style="font-size:.68rem;">
                         <?= count($transaksi_list) ?>
                     </span>
                 </div>
                 <div class="card-body p-0">
                     <?php if (count($transaksi_list) > 0): ?>
                     <div class="table-responsive">
-                        <table class="table table-kas table-hover mb-0">
+                        <table class="table table-kas mb-0">
                             <thead>
                                 <tr>
                                     <th class="ps-3">Tanggal</th>
@@ -319,26 +587,22 @@ function rupiah($angka) {
                                     <td class="ps-3" style="white-space:nowrap;">
                                         <?= date('d/m/Y', strtotime($tr['tanggal'])) ?>
                                     </td>
-                                    <td style="white-space:nowrap;">
-                                        <?php if (!empty($tr['nama_periode'])): ?>
-                                            <span style="font-size:.78rem;">
-                                                <?= htmlspecialchars($tr['nama_periode']) ?>
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="text-muted">-</span>
-                                        <?php endif; ?>
+                                    <td style="white-space:nowrap; font-size:.78rem;">
+                                        <?= !empty($tr['nama_periode'])
+                                            ? htmlspecialchars($tr['nama_periode'])
+                                            : '<span class="text-muted">-</span>' ?>
                                     </td>
                                     <td><?= htmlspecialchars($tr['keterangan'] ?? '-') ?></td>
-                                    <td style="white-space:nowrap; font-weight:500;">
+                                    <td style="white-space:nowrap; font-weight:600;">
                                         <?= rupiah($tr['jumlah']) ?>
                                     </td>
                                     <td>
                                         <?php if ($tr['jenis'] === 'bayar'): ?>
-                                            <span class="badge rounded-pill badge-bayar" style="font-size:.7rem;">
+                                            <span class="badge rounded-pill badge-bayar" style="font-size:.68rem;">
                                                 <i class="bi bi-arrow-down-circle-fill me-1"></i>Bayar
                                             </span>
                                         <?php else: ?>
-                                            <span class="badge rounded-pill badge-pengeluaran" style="font-size:.7rem;">
+                                            <span class="badge rounded-pill badge-pengeluaran" style="font-size:.68rem;">
                                                 <i class="bi bi-arrow-up-circle-fill me-1"></i>Pengeluaran
                                             </span>
                                         <?php endif; ?>
@@ -351,18 +615,40 @@ function rupiah($angka) {
                     <?php else: ?>
                     <div class="empty-state">
                         <i class="bi bi-clock-history"></i>
-                        <div>Belum ada riwayat transaksi</div>
-                        <div style="font-size:.8rem;" class="mt-1">
+                        <p>Belum ada riwayat transaksi</p>
+                        <p class="text-muted mt-1" style="font-size:.78rem;">
                             Transaksi kas Anda akan muncul di sini
-                        </div>
+                        </p>
                     </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
+
     </div>
-</div>
+
+    <!-- Footer -->
+    <div class="text-center text-muted mt-4" style="font-size:.74rem;">
+        © <?= date('Y') ?> Sistem Kas Kelas · E Kas Seven
+    </div>
+
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const sidebar        = document.getElementById('sidebar');
+    const overlay        = document.getElementById('sidebarOverlay');
+    const toggleBtn      = document.getElementById('sidebarToggle');
+
+    toggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('open');
+    });
+
+    overlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('open');
+    });
+</script>
 </body>
 </html>
