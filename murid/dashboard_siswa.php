@@ -360,13 +360,7 @@ function rupiah($angka) {
                 </div>
             </div>
         </div>
-
     </div>
-
-    <div class="text-center text-muted mt-4" style="font-size:.76rem;">
-        © <?= date('Y') ?> Sistem Kas Kelas · E Kas Seven
-    </div>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
