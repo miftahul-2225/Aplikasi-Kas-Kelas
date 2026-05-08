@@ -394,7 +394,7 @@ $total_kategori = mysqli_fetch_assoc($q_kategori)['total'];
         </div>
     </div>
  
-   <!-- STATUS SISWA - Disesuaikan dengan struktur DB -->
+   <!-- STATUS SISWA -->
     <div class="card border rounded-4 mb-4">
         <div class="card-body p-4">
             <h6 class="fw-semibold mb-3">Status Pembayaran Siswa</h6>
