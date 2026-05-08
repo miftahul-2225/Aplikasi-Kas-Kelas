@@ -394,35 +394,338 @@ $total_kategori = mysqli_fetch_assoc($q_kategori)['total'];
         </div>
     </div>
  
-    <!-- STATUS SISWA -->
+   <!-- STATUS SISWA - Disesuaikan dengan struktur DB -->
     <div class="card border rounded-4 mb-4">
         <div class="card-body p-4">
             <h6 class="fw-semibold mb-3">Status Pembayaran Siswa</h6>
-            <div class="row g-3">
-                <div class="col-6 col-md-3">
-                    <div class="card border-0 text-center rounded-3 p-3" style="background:#f8f9fa;">
-                        <h4 class="fw-bold mb-0"><?= $total_siswa ?></h4>
-                        <small class="text-muted">Total Siswa</small>
+
+            <!-- TABS -->
+            <ul class="nav nav-pills mb-3" id="statusTab" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="pill"
+                        data-bs-target="#paneRingkasan" type="button">
+                        <i class="bi bi-calendar3 me-1"></i>Ringkasan Bulanan
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="tab-detail" data-bs-toggle="pill"
+                        data-bs-target="#paneDetail" type="button">
+                        <i class="bi bi-people me-1"></i>Detail Siswa
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+
+                <!-- ═══ TAB 1: RINGKASAN BULANAN ═══ -->
+                <div class="tab-pane fade show active" id="paneRingkasan">
+
+                    <!-- Summary kartu bulan aktif -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 text-center rounded-3 p-3" style="background:#f8f9fa;">
+                                <h4 class="fw-bold mb-0"><?= $total_siswa ?></h4>
+                                <small class="text-muted">Total Siswa</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 text-center rounded-3 p-3" style="background:#d1fae5;">
+                                <h4 class="fw-bold text-success mb-0"><?= $lunas ?></h4>
+                                <small class="text-success">Lunas</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 text-center rounded-3 p-3" style="background:#fef9c3;">
+                                <h4 class="fw-bold text-warning mb-0"><?= $sebagian ?></h4>
+                                <small class="text-warning">Sebagian</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card border-0 text-center rounded-3 p-3" style="background:#fee2e2;">
+                                <h4 class="fw-bold text-danger mb-0"><?= $belum ?></h4>
+                                <small class="text-danger">Belum Bayar</small>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="card border-0 text-center rounded-3 p-3" style="background:#d1fae5;">
-                        <h4 class="fw-bold text-success mb-0"><?= $lunas ?></h4>
-                        <small class="text-success">Lunas</small>
+
+                    <!-- Tabel riwayat 12 bulan -->
+                    <?php
+                    $nama_bulan = [
+                        '', 'Januari','Februari','Maret','April','Mei','Juni',
+                        'Juli','Agustus','September','Oktober','November','Desember'
+                    ];
+                    $tahun_loop = $tahun; // pakai $tahun dari filter atas
+                    ?>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Bulan</th>
+                                    <th style="min-width:140px;">Progres</th>
+                                    <th class="text-center text-success">Lunas</th>
+                                    <th class="text-center text-warning">Sebagian</th>
+                                    <th class="text-center text-danger">Belum</th>
+                                    <th class="text-end">Terkumpul</th>
+                                    <th class="text-end">Target</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php for ($b = 1; $b <= 12; $b++):
+                                $is_current = ($b == $bulan && $tahun_loop == $tahun);
+
+                                // Hitung target bulan ini dari tb_periode
+                                $q_tp = mysqli_query($koneksi_db, "
+                                    SELECT COALESCE(SUM(target), 0) as total_target
+                                    FROM tb_periode
+                                    WHERE status = 'aktif'
+                                    AND tanggal_mulai <= LAST_DAY('$tahun_loop-$b-01')
+                                    AND tanggal_selesai >= '$tahun_loop-$b-01'
+                                ");
+                                $target_row     = mysqli_fetch_assoc($q_tp);
+                                $tgt_per_siswa_b = (int)($target_row['total_target'] > 0
+                                    ? $target_row['total_target']
+                                    : 10000);
+                                $tgt_total_b     = $tgt_per_siswa_b * $total_siswa;
+
+                                // Total bayar bulan ini
+                                $q_mb = mysqli_query($koneksi_db, "
+                                    SELECT COALESCE(SUM(jumlah), 0) as total
+                                    FROM tb_transaksi
+                                    WHERE jenis = 'bayar'
+                                    AND MONTH(tanggal) = $b
+                                    AND YEAR(tanggal)  = $tahun_loop
+                                ");
+                                $masuk_b = (int)mysqli_fetch_assoc($q_mb)['total'];
+
+                                // Status per siswa bulan ini
+                                // pakai nama_siswa sesuai kolom di tb_siswa
+                                $q_sb = mysqli_query($koneksi_db, "
+                                    SELECT s.id_siswa,
+                                        COALESCE(SUM(tr.jumlah), 0) as bayar
+                                    FROM tb_siswa s
+                                    LEFT JOIN tb_transaksi tr
+                                        ON s.id_siswa = tr.id_siswa
+                                        AND tr.jenis  = 'bayar'
+                                        AND MONTH(tr.tanggal) = $b
+                                        AND YEAR(tr.tanggal)  = $tahun_loop
+                                    WHERE s.status = 'aktif'
+                                    GROUP BY s.id_siswa
+                                ");
+                                $l_b = 0; $sb_b = 0; $bl_b = 0;
+                                while ($row_b = mysqli_fetch_assoc($q_sb)) {
+                                    if ($row_b['bayar'] >= $tgt_per_siswa_b) $l_b++;
+                                    elseif ($row_b['bayar'] > 0)             $sb_b++;
+                                    else                                      $bl_b++;
+                                }
+                                $pct_b = $tgt_total_b > 0
+                                    ? min(100, round($masuk_b / $tgt_total_b * 100))
+                                    : 0;
+                            ?>
+                            <tr class="<?= $is_current ? 'table-primary' : '' ?>">
+                                <td class="<?= $is_current ? 'fw-semibold' : '' ?>">
+                                    <?= $nama_bulan[$b] ?> <?= $tahun_loop ?>
+                                    <?php if ($is_current): ?>
+                                        <span class="badge bg-primary ms-1" style="font-size:9px;">Aktif</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <div class="progress rounded-pill mb-1" style="height:6px;">
+                                        <div class="progress-bar <?= $pct_b >= 100 ? 'bg-success' : ($pct_b > 0 ? 'bg-warning' : 'bg-danger') ?>"
+                                            style="width:<?= $pct_b ?>%"></div>
+                                    </div>
+                                    <small class="text-muted"><?= $pct_b ?>%</small>
+                                </td>
+                                <td class="text-center fw-semibold text-success"><?= $l_b ?></td>
+                                <td class="text-center fw-semibold text-warning"><?= $sb_b ?></td>
+                                <td class="text-center fw-semibold text-danger"><?= $bl_b ?></td>
+                                <td class="text-end text-nowrap">
+                                    Rp <?= number_format($masuk_b, 0, ',', '.') ?>
+                                </td>
+                                <td class="text-end text-nowrap text-muted">
+                                    Rp <?= number_format($tgt_total_b, 0, ',', '.') ?>
+                                </td>
+                            </tr>
+                            <?php endfor; ?>
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="card border-0 text-center rounded-3 p-3" style="background:#fef9c3;">
-                        <h4 class="fw-bold text-warning mb-0"><?= $sebagian ?></h4>
-                        <small class="text-warning">Sebagian</small>
+                </div><!-- /paneRingkasan -->
+
+
+                <!-- ═══ TAB 2: DETAIL SISWA ═══ -->
+                <div class="tab-pane fade" id="paneDetail">
+
+                    <!-- Ambil semua data siswa aktif + bayaran per bulan sekaligus -->
+                    <?php
+                    // Ambil siswa aktif saja
+                    $q_all = mysqli_query($koneksi_db, "
+                        SELECT id_siswa, nama_siswa, kelas
+                        FROM tb_siswa
+                        WHERE status = 'aktif'
+                        ORDER BY nama_siswa ASC
+                    ");
+                    $arr_siswa = [];
+                    while ($s = mysqli_fetch_assoc($q_all)) $arr_siswa[] = $s;
+
+                    // Ambil semua pembayaran tahun ini sekaligus (1 query, efisien)
+                    $q_pay = mysqli_query($koneksi_db, "
+                        SELECT id_siswa,
+                            MONTH(tanggal) as bln,
+                            SUM(jumlah)    as total
+                        FROM tb_transaksi
+                        WHERE jenis = 'bayar'
+                        AND YEAR(tanggal) = $tahun_loop
+                        GROUP BY id_siswa, MONTH(tanggal)
+                    ");
+                    $pay_map = [];
+                    while ($r = mysqli_fetch_assoc($q_pay))
+                        $pay_map[$r['id_siswa']][(int)$r['bln']] = (int)$r['total'];
+
+                    // Target per siswa per bulan (array 12 bulan)
+                    $target_map = [];
+                    for ($b = 1; $b <= 12; $b++) {
+                        $q_tm = mysqli_query($koneksi_db, "
+                            SELECT COALESCE(SUM(target), 0) as t
+                            FROM tb_periode
+                            WHERE status = 'aktif'
+                            AND tanggal_mulai <= LAST_DAY('$tahun_loop-$b-01')
+                            AND tanggal_selesai >= '$tahun_loop-$b-01'
+                        ");
+                        $tm = (int)mysqli_fetch_assoc($q_tm)['t'];
+                        $target_map[$b] = $tm > 0 ? $tm : 10000;
+                    }
+                    ?>
+
+                    <script>
+                    const siswaDt   = <?= json_encode(array_values($arr_siswa)) ?>;
+                    const payMap    = <?= json_encode($pay_map) ?>;
+                    const targetMap = <?= json_encode($target_map) ?>;
+                    const namaBulan = ['','Januari','Februari','Maret','April',
+                                    'Mei','Juni','Juli','Agustus',
+                                    'September','Oktober','November','Desember'];
+
+                    function inisial(n){
+                        return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+                    }
+
+                    function filterSiswa(){
+                        const q    = document.getElementById('cariSiswa').value.toLowerCase();
+                        const bln  = parseInt(document.getElementById('filterBulan').value);
+                        const stat = document.getElementById('filterStatus').value;
+                        const tgt  = targetMap[bln] ?? 10000;
+
+                        let html = ''; let count = 0;
+                        siswaDt.forEach(s => {
+                            if (q && !s.nama_siswa.toLowerCase().includes(q)) return;
+
+                            const bayar  = (payMap[s.id_siswa] ?? {})[bln] ?? 0;
+                            const status = bayar >= tgt ? 'lunas' : bayar > 0 ? 'sebagian' : 'belum';
+                            if (stat && status !== stat) return;
+                            count++;
+
+                            const pct = Math.min(100, tgt > 0 ? Math.round(bayar / tgt * 100) : 0);
+                            const barColor = status==='lunas'   ? 'bg-success'
+                                        : status==='sebagian'? 'bg-warning' : 'bg-danger';
+                            const badge    = status==='lunas'
+                                ? '<span class="badge rounded-pill text-bg-success">Lunas</span>'
+                                : status==='sebagian'
+                                ? '<span class="badge rounded-pill text-bg-warning">Sebagian</span>'
+                                : '<span class="badge rounded-pill text-bg-danger">Belum Bayar</span>';
+
+                            const sisa = Math.max(0, tgt - bayar);
+
+                            html += `<tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary
+                                                    d-flex align-items-center justify-content-center flex-shrink-0"
+                                            style="width:32px;height:32px;font-size:11px;font-weight:600;">
+                                            ${inisial(s.nama_siswa)}
+                                        </div>
+                                        <div>
+                                            <div class="fw-medium" style="font-size:13px;">${s.nama_siswa}</div>
+                                            <div class="text-muted" style="font-size:11px;">${s.kelas ?? '-'}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="progress rounded-pill mb-1" style="height:5px;min-width:80px;">
+                                        <div class="progress-bar ${barColor}" style="width:${pct}%"></div>
+                                    </div>
+                                    <small class="text-muted">${pct}%</small>
+                                </td>
+                                <td class="text-end fw-medium" style="font-size:13px;">
+                                    Rp ${bayar.toLocaleString('id-ID')}
+                                </td>
+                                <td class="text-end text-muted" style="font-size:12px;">
+                                    Rp ${tgt.toLocaleString('id-ID')}
+                                </td>
+                                <td class="text-end text-danger" style="font-size:12px;">
+                                    ${sisa > 0 ? 'Rp '+sisa.toLocaleString('id-ID') : '<span class="text-success">-</span>'}
+                                </td>
+                                <td class="text-center">${badge}</td>
+                            </tr>`;
+                        });
+
+                        document.getElementById('bodyDetail').innerHTML = html;
+                        document.getElementById('jumlahSiswa').textContent = count + ' siswa';
+                        document.getElementById('emptyMsg').style.display = count ? 'none' : 'block';
+                    }
+                    </script>
+
+                    <!-- Filter bar -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-12 col-md-4">
+                            <input type="text" id="cariSiswa"
+                                class="form-control form-control-sm rounded-3"
+                                placeholder="Cari nama siswa…"
+                                oninput="filterSiswa()">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <select id="filterBulan" class="form-select form-select-sm rounded-3"
+                                    onchange="filterSiswa()">
+                                <?php for ($b = 1; $b <= 12; $b++): ?>
+                                <option value="<?= $b ?>" <?= $b == $bulan ? 'selected' : '' ?>>
+                                    <?= $nama_bulan[$b] ?> <?= $tahun_loop ?>
+                                </option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <select id="filterStatus" class="form-select form-select-sm rounded-3"
+                                    onchange="filterSiswa()">
+                                <option value="">Semua Status</option>
+                                <option value="lunas">Lunas</option>
+                                <option value="sebagian">Sebagian</option>
+                                <option value="belum">Belum Bayar</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="card border-0 text-center rounded-3 p-3" style="background:#fee2e2;">
-                        <h4 class="fw-bold text-danger mb-0"><?= $belum ?></h4>
-                        <small class="text-danger">Belum Bayar</small>
+
+                    <!-- Tabel detail -->
+                    <div class="table-responsive">
+                        <div class="mb-2">
+                            <small class="text-muted" id="jumlahSiswa">— siswa</small>
+                        </div>
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nama Siswa</th>
+                                    <th style="min-width:120px;">Progres</th>
+                                    <th class="text-end">Dibayar</th>
+                                    <th class="text-end">Target</th>
+                                    <th class="text-end text-danger">Sisa</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bodyDetail"></tbody>
+                        </table>
+                        <p id="emptyMsg" class="text-center text-muted small py-3" style="display:none">
+                            <i class="bi bi-inbox me-1"></i>Tidak ada data ditemukan.
+                        </p>
                     </div>
-                </div>
+                </div><!-- /paneDetail -->
+
             </div>
         </div>
     </div>
