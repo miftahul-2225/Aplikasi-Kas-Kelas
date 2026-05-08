@@ -836,6 +836,8 @@ $total_kategori = mysqli_fetch_assoc($q_kategori)['total'];
  
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    document.getElementById('tab-detail').addEventListener('shown.bs.tab', () => filterSiswa());
+
     function desktopToggle() {
         document.getElementById('sidebar').classList.toggle('mini');
         document.getElementById('main').classList.toggle('expanded');
