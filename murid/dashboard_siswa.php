@@ -546,14 +546,7 @@ $initial = inisial($siswa['nama_siswa']);
                 </div>
             </div>
         </div>
-
     </div>
-
-    <!-- Footer -->
-    <div class="text-center text-muted mt-4" style="font-size:.74rem;">
-        © <?= date('Y') ?> Sistem Kas Kelas · E Kas Seven
-    </div>
-
 </main>
 
 <!-- ══════════════════════════════
