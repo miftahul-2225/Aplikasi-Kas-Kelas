@@ -56,11 +56,22 @@ if ($q_target && $row_t = mysqli_fetch_assoc($q_target)) {
     $target_per_minggu = $row_t['target'];
 }
 
+// ── FORMAT RUPIAH ──
 function rupiah($angka) {
     return 'Rp ' . number_format($angka, 0, ',', '.');
 }
 
-$initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
+// ── FUNGSI INISIAL (ambil 2 kata pertama) ──
+function inisial($nama) {
+    $kata  = explode(' ', trim($nama));
+    $hasil = '';
+    foreach (array_slice($kata, 0, 2) as $k) {
+        if (!empty($k)) $hasil .= strtoupper($k[0]);
+    }
+    return $hasil;
+}
+
+$initial = inisial($siswa['nama_siswa']);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -156,9 +167,9 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
             font-size: 13px; font-weight: 500; border: none; cursor: pointer;
             text-decoration: none; white-space: nowrap; overflow: hidden;
         }
-        .sb-btn.danger  { background: #fdecea; color: #c62828; }
-        .sb-btn.danger:hover  { background: #fcd5d1; }
-        .sb-btn-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+        .sb-btn.danger       { background: #fdecea; color: #c62828; }
+        .sb-btn.danger:hover { background: #fcd5d1; }
+        .sb-btn-icon  { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
         .sb-btn-label { transition: opacity var(--ease); }
         #sidebar.mini .sb-btn-label { opacity: 0; pointer-events: none; }
 
@@ -178,18 +189,18 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
 
         .topbar-title { font-size: 1rem; font-weight: 700; color: #1e293b; }
         .topbar-sub   { font-size: .74rem; color: #94a3b8; }
+        .topbar-user  { display: flex; align-items: center; gap: 10px; }
+        .topbar-name  { font-size: .875rem; font-weight: 600; color: #1e293b; line-height: 1.2; }
+        .topbar-role  { font-size: .72rem; color: #94a3b8; }
 
-        .topbar-user {
-            display: flex; align-items: center; gap: 10px;
-        }
-        .topbar-avatar {
-            width: 38px; height: 38px; border-radius: 50%;
-            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+        /* ══ AVATAR INISIAL ══ */
+        .avatar-inisial {
+            border-radius: 50%;
+            background: rgba(13, 110, 253, 0.1);
+            color: #0d6efd;
             display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 15px; font-weight: 700; flex-shrink: 0;
+            font-weight: 600; flex-shrink: 0;
         }
-        .topbar-name { font-size: .875rem; font-weight: 600; color: #1e293b; line-height: 1.2; }
-        .topbar-role { font-size: .72rem; color: #94a3b8; }
 
         /* ══ MAIN ══ */
         #main {
@@ -228,13 +239,6 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
             color: #1e293b;
         }
 
-        /* ══ PROFIL ══ */
-        .profil-avatar {
-            width: 58px; height: 58px; border-radius: 50%;
-            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 24px; color: #fff; font-weight: 700;
-        }
         .info-label { font-size: .73rem; color: #94a3b8; margin-bottom: 1px; }
         .info-value { font-size: .875rem; font-weight: 500; color: #1e293b; }
 
@@ -279,7 +283,7 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
             transition: color .15s; padding: 6px 2px;
         }
         .bn-item.active { color: var(--accent); }
-        .bn-item i { font-size: 19px; }
+        .bn-item i    { font-size: 19px; }
         .bn-item span { font-size: 9px; line-height: 1; }
 
         /* ══ MOBILE ══ */
@@ -323,12 +327,6 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
             </a>
         </div>
         <div class="nav-item mt-2">
-            <a href="riwayat_bayar.php" class="nav-link" data-tip="Riwayat Bayar">
-                <i class="nav-icon fa-solid fa-clock-rotate-left"></i>
-                <span class="nav-label">Riwayat Bayar</span>
-            </a>
-        </div>
-        <div class="nav-item mt-2">
             <a href="status_bayar.php" class="nav-link" data-tip="Status Pembayaran">
                 <i class="nav-icon fa-regular fa-circle-check"></i>
                 <span class="nav-label">Status Pembayaran</span>
@@ -355,7 +353,10 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
         </div>
     </div>
     <div class="topbar-user">
-        <div class="topbar-avatar"><?= $initial ?></div>
+        <!-- Avatar inisial topbar: 38×38 -->
+        <div class="avatar-inisial" style="width:38px;height:38px;font-size:13px;">
+            <?= $initial ?>
+        </div>
         <div>
             <div class="topbar-name"><?= htmlspecialchars($siswa['nama_siswa']) ?></div>
             <div class="topbar-role"><?= htmlspecialchars($siswa['kelas']) ?></div>
@@ -434,9 +435,14 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
                 </div>
                 <div class="card-body p-3">
                     <div class="d-flex align-items-center gap-3 mb-3">
-                        <div class="profil-avatar"><?= $initial ?></div>
+
+                        <!-- Avatar inisial profil: 58×58 -->
+                        <div class="avatar-inisial" style="width:58px;height:58px;font-size:20px;">
+                            <?= $initial ?>
+                        </div>
+
                         <div>
-                            <div class="fw-semibold" style="font-size:.92rem; color:#1e293b; line-height:1.3;">
+                            <div class="fw-semibold" style="font-size:.92rem;color:#1e293b;line-height:1.3;">
                                 <?= htmlspecialchars($siswa['nama_siswa']) ?>
                             </div>
                             <div class="text-muted" style="font-size:.78rem;">
@@ -499,13 +505,13 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
                                     <td class="ps-3" style="white-space:nowrap;">
                                         <?= date('d M Y', strtotime($tr['tanggal'])) ?>
                                     </td>
-                                    <td style="white-space:nowrap; font-size:.78rem;">
+                                    <td style="white-space:nowrap;font-size:.78rem;">
                                         <?= !empty($tr['nama_periode'])
                                             ? htmlspecialchars($tr['nama_periode'])
                                             : '<span class="text-muted">-</span>' ?>
                                     </td>
                                     <td><?= htmlspecialchars($tr['keterangan'] ?? '-') ?></td>
-                                    <td style="white-space:nowrap; font-weight:600;">
+                                    <td style="white-space:nowrap;font-weight:600;">
                                         <?php if ($tr['jenis'] === 'bayar'): ?>
                                             <span class="text-success">+<?= rupiah($tr['jumlah']) ?></span>
                                         <?php else: ?>
@@ -540,7 +546,14 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
                 </div>
             </div>
         </div>
+
     </div>
+
+    <!-- Footer -->
+    <div class="text-center text-muted mt-4" style="font-size:.74rem;">
+        © <?= date('Y') ?> Sistem Kas Kelas · E Kas Seven
+    </div>
+
 </main>
 
 <!-- ══════════════════════════════
@@ -554,10 +567,6 @@ $initial = strtoupper(substr($siswa['nama_siswa'], 0, 1));
     <a href="profil_siswa.php" class="bn-item">
         <i class="fa-solid fa-circle-user"></i>
         <span>Profil</span>
-    </a>
-    <a href="riwayat_bayar.php" class="bn-item">
-        <i class="fa-solid fa-clock-rotate-left"></i>
-        <span>Riwayat</span>
     </a>
     <a href="status_bayar.php" class="bn-item">
         <i class="fa-regular fa-circle-check"></i>
