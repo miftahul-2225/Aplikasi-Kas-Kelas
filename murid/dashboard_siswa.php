@@ -459,7 +459,7 @@ $initial = inisial($siswa['nama_siswa']);
                     <hr class="my-2" style="border-color:#f1f5f9;">
 
                     <div class="mb-2">
-                        <div class="info-label">ID Siswa</div>
+                        <div class="info-label">Nisn Siswa</div>
                         <div class="info-value"><?= htmlspecialchars($siswa['id_siswa']) ?></div>
                     </div>
                     <div class="mb-3">
@@ -469,7 +469,7 @@ $initial = inisial($siswa['nama_siswa']);
 
                     <div class="rounded-3 p-2" style="background:#eff6ff;font-size:.75rem;color:#1d4ed8;">
                         <i class="fa-solid fa-circle-info me-1"></i>
-                        Password login Anda adalah <strong>ID Siswa</strong> Anda.
+                        Password login Anda adalah <strong>Nisn Siswa</strong> Anda.
                     </div>
                 </div>
             </div>
