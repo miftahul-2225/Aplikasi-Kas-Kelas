@@ -321,12 +321,6 @@ $initial = inisial($siswa['nama_siswa']);
             </a>
         </div>
         <div class="nav-item mt-2">
-            <a href="profil_siswa.php" class="nav-link" data-tip="Profil Saya">
-                <i class="nav-icon fa-solid fa-circle-user"></i>
-                <span class="nav-label">Profil Saya</span>
-            </a>
-        </div>
-        <div class="nav-item mt-2">
             <a href="status_bayar.php" class="nav-link" data-tip="Status Pembayaran">
                 <i class="nav-icon fa-regular fa-circle-check"></i>
                 <span class="nav-label">Status Pembayaran</span>
@@ -371,7 +365,6 @@ $initial = inisial($siswa['nama_siswa']);
 
     <!-- STAT CARDS -->
     <div class="row g-3 mb-4">
-
         <div class="col-6 col-md-3">
             <div class="stat-card card-anim" style="animation-delay:.1s;">
                 <div class="stat-icon" style="background:#eff6ff;">
@@ -480,7 +473,7 @@ $initial = inisial($siswa['nama_siswa']);
             <div class="section-card card-anim" style="animation-delay:.5s;">
                 <div class="card-header">
                     <span>
-                        <i class="fa-solid fa-clock-rotate-left text-primary me-1"></i> Riwayat Transaksi Kas
+                        <i class="fa-solid fa-clock-rotate-left text-primary me-1"></i> Riwayat Transaksi Kas Anda
                     </span>
                     <span class="badge bg-primary rounded-pill" style="font-size:.68rem;">
                         <?= count($transaksi_list) ?>
