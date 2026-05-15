@@ -604,6 +604,39 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
         url.searchParams.set('tahun',  <?= $tahun ?>);
         window.location.href = url.toString();
     }
+
+     /* ── MODAL TAMBAH TRANSAKSI ── */
+    function toggleSiswaTransaksi() {
+    const jenis    = document.getElementById('selectJenis').value;
+    const wrapCek  = document.getElementById('wrapCekSiswaTransaksi');
+    const field    = document.getElementById('fieldSiswaTransaksi');
+    const cek      = document.getElementById('cekSiswaTransaksi');
+    const select   = document.getElementById('selectSiswaTransaksi');
+
+    if(jenis === 'bayar'){
+        wrapCek.classList.remove('d-none');
+    } else {
+        // pengeluaran → sembunyikan semua, reset
+        wrapCek.classList.add('d-none');
+        field.classList.add('d-none');
+        cek.checked    = false;
+        select.required = false;
+    }
+    }
+
+    function toggleDropdownSiswaTransaksi() {
+        const cek    = document.getElementById('cekSiswaTransaksi');
+        const field  = document.getElementById('fieldSiswaTransaksi');
+        const select = document.getElementById('selectSiswaTransaksi');
+
+        if(cek.checked){
+            field.classList.remove('d-none');
+            select.required = true;
+        } else {
+            field.classList.add('d-none');
+            select.required = false;
+        }
+    }
 </script>
 </body>
 </html>
