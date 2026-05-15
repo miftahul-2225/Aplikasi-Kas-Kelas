@@ -16,7 +16,7 @@ function redirectDashboard($role) {
     } elseif ($role == 'siswa') {
         header("Location: murid/dashboard_siswa.php");          // folder murid/
     } elseif ($role == 'ketua') {
-        header("Location: dashboard_ketua.php");                // root (sesuaikan jika ada folder sendiri)
+        header("Location: ketua/dashboard_ketua.php");          // folder ketua/ 
     } elseif ($role == 'wali') {
         header("Location: walikelas/dashboard_wali.php");       // folder walikelas/
     } else {
@@ -45,9 +45,7 @@ if (isset($_POST['login'])) {
         $username = mysqli_real_escape_string($koneksi_db, $username);
         $password = mysqli_real_escape_string($koneksi_db, $password);
 
-        // =============================================
         // CEK 1: USER DI tb_user (bendahara / wali / ketua)
-        // =============================================
         $q_user = mysqli_query($koneksi_db, "
             SELECT * FROM tb_user 
             WHERE username='$username'
@@ -75,9 +73,7 @@ if (isset($_POST['login'])) {
             }
 
         } else {
-            // =============================================
             // CEK 2: SISWA DI tb_siswa (username = id_siswa, password = id_siswa)
-            // =============================================
             $q_siswa = mysqli_query($koneksi_db, "
                 SELECT * FROM tb_siswa 
                 WHERE id_siswa='$username'
