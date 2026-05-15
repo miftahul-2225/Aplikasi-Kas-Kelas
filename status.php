@@ -541,7 +541,7 @@ if (isset($_POST['simpan'])) {
                     <!-- JUMLAH -->
                     <div class="mb-2">
                         <label class="form-label">Jumlah Pembayaran (Rp)</label>
-                        <input type="number" name="jumlah" id="inputJumlah" class="form-control rounded-3" required>
+                        <input type="number" name="jumlah" id="inputJumlah" class="form-control rounded-3" maxlength="10000" required>
                     </div>
  
                     <div id="opsiJumlah" class="d-flex gap-2 d-none mb-3">
@@ -576,14 +576,40 @@ if (isset($_POST['simpan'])) {
             </div>
             <form method="POST" action="proses_transaksi.php">
                 <div class="modal-body">
+
+                    <!-- JENIS -->
                     <div class="mb-3">
                         <label class="form-label">Jenis</label>
-                        <select name="jenis" class="form-select rounded-3" required>
+                        <select name="jenis" id="selectJenis" class="form-select rounded-3" required onchange="toggleSiswaTransaksi()">
                             <option value="">-- Pilih --</option>
                             <option value="bayar">Pemasukan</option>
                             <option value="pengeluaran">Pengeluaran</option>
                         </select>
                     </div>
+
+                    <!-- CHECKBOX TERKAIT SISWA (hanya muncul kalau Pemasukan) -->
+                    <div class="mb-3 d-none" id="wrapCekSiswaTransaksi">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="cekSiswaTransaksi" name="ada_siswa" value="1" onchange="toggleDropdownSiswaTransaksi()">
+                            <label class="form-check-label" for="cekSiswaTransaksi">
+                                Terkait pembayaran siswa
+                            </label>
+                        </div>
+                    </div>
+                    <!-- DROPDOWN SISWA -->
+                    <div class="mb-3 d-none" id="fieldSiswaTransaksi">
+                        <label class="form-label">Siswa</label>
+                        <select name="id_siswa" id="selectSiswaTransaksi" class="form-select rounded-3">
+                            <option value="">-- Pilih Siswa --</option>
+                            <?php
+                            $qs = mysqli_query($koneksi_db, "SELECT id_siswa, nama_siswa FROM tb_siswa ORDER BY nama_siswa ASC");
+                            while($row = mysqli_fetch_assoc($qs)){
+                                echo "<option value='{$row['id_siswa']}'>{$row['nama_siswa']}</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">Keterangan</label>
                         <textarea name="keterangan" class="form-control rounded-3" rows="2" required></textarea>
@@ -596,6 +622,7 @@ if (isset($_POST['simpan'])) {
                         <label class="form-label">Tanggal</label>
                         <input type="date" name="tanggal" class="form-control rounded-3" required>
                     </div>
+
                     <button type="submit" name="simpan" class="btn btn-primary w-100 rounded-3">Simpan</button>
                 </div>
             </form>
@@ -689,6 +716,39 @@ if (isset($_POST['simpan'])) {
     });
  
     modalBayar.addEventListener('hidden.bs.modal', resetModal);
+
+    /* ── MODAL TAMBAH TRANSAKSI ── */
+    function toggleSiswaTransaksi() {
+    const jenis    = document.getElementById('selectJenis').value;
+    const wrapCek  = document.getElementById('wrapCekSiswaTransaksi');
+    const field    = document.getElementById('fieldSiswaTransaksi');
+    const cek      = document.getElementById('cekSiswaTransaksi');
+    const select   = document.getElementById('selectSiswaTransaksi');
+
+    if(jenis === 'bayar'){
+        wrapCek.classList.remove('d-none');
+    } else {
+        // pengeluaran → sembunyikan semua, reset
+        wrapCek.classList.add('d-none');
+        field.classList.add('d-none');
+        cek.checked    = false;
+        select.required = false;
+    }
+    }
+
+    function toggleDropdownSiswaTransaksi() {
+        const cek    = document.getElementById('cekSiswaTransaksi');
+        const field  = document.getElementById('fieldSiswaTransaksi');
+        const select = document.getElementById('selectSiswaTransaksi');
+
+        if(cek.checked){
+            field.classList.remove('d-none');
+            select.required = true;
+        } else {
+            field.classList.add('d-none');
+            select.required = false;
+        }
+    }
 </script>
 </body>
 </html>
