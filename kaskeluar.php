@@ -154,6 +154,39 @@ $totalTransaksi = mysqli_num_rows($data);
         document.getElementById('sidebar').classList.toggle('mini');
         document.getElementById('main').classList.toggle('expanded');
     }
+
+     /* ── MODAL TAMBAH TRANSAKSI ── */
+    function toggleSiswaTransaksi() {
+    const jenis    = document.getElementById('selectJenis').value;
+    const wrapCek  = document.getElementById('wrapCekSiswaTransaksi');
+    const field    = document.getElementById('fieldSiswaTransaksi');
+    const cek      = document.getElementById('cekSiswaTransaksi');
+    const select   = document.getElementById('selectSiswaTransaksi');
+
+    if(jenis === 'bayar'){
+        wrapCek.classList.remove('d-none');
+    } else {
+        // pengeluaran → sembunyikan semua, reset
+        wrapCek.classList.add('d-none');
+        field.classList.add('d-none');
+        cek.checked    = false;
+        select.required = false;
+    }
+    }
+
+    function toggleDropdownSiswaTransaksi() {
+        const cek    = document.getElementById('cekSiswaTransaksi');
+        const field  = document.getElementById('fieldSiswaTransaksi');
+        const select = document.getElementById('selectSiswaTransaksi');
+
+        if(cek.checked){
+            field.classList.remove('d-none');
+            select.required = true;
+        } else {
+            field.classList.add('d-none');
+            select.required = false;
+        }
+    }
 </script>
 </body>
 </html>
