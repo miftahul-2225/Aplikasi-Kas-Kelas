@@ -662,7 +662,6 @@ function resetModal() {
     inputJumlah.value       = "";
     dataTunggakan           = [];
     infoIuran.classList.add('d-none');
-    opsiJumlah.classList.add('d-none');
     alertBox.classList.add('d-none');
     wrapTunggakan.classList.add('d-none');
     isiTunggakan.innerHTML  = "";
