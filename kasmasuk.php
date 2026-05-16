@@ -496,37 +496,61 @@ $totalTransaksi = mysqli_num_rows($data);
         }
 
         /* ── MODAL TAMBAH TRANSAKSI ── */
-        function toggleSiswaTransaksi() {
-            const jenis = document.getElementById('selectJenis').value;
-            const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
-            const field = document.getElementById('fieldSiswaTransaksi');
-            const cek = document.getElementById('cekSiswaTransaksi');
-            const select = document.getElementById('selectSiswaTransaksi');
+    function toggleSiswaTransaksi() {
+        const jenis   = document.getElementById('selectJenis').value;
+        const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
+        const field   = document.getElementById('fieldSiswaTransaksi');
+        const cek     = document.getElementById('cekSiswaTransaksi');
+        const select  = document.getElementById('selectSiswaTransaksi');
 
-            if (jenis === 'bayar') {
-                wrapCek.classList.remove('d-none');
-            } else {
-                // pengeluaran → sembunyikan semua, reset
-                wrapCek.classList.add('d-none');
-                field.classList.add('d-none');
-                cek.checked = false;
-                select.required = false;
-            }
+        if(jenis === 'bayar' || jenis === 'pengeluaran'){
+            // Tampilkan checkbox untuk kedua jenis
+            wrapCek.classList.remove('d-none');
+
+            // Update label checkbox sesuai jenis
+            const label = document.querySelector('label[for="cekSiswaTransaksi"]');
+            label.textContent = jenis === 'bayar'
+                ? 'Terkait pembayaran siswa'
+                : 'Terkait pengeluaran untuk siswa';
+        } else {
+            // Reset semua kalau belum pilih jenis
+            wrapCek.classList.add('d-none');
+            field.classList.add('d-none');
+            cek.checked      = false;
+            select.required  = false;
         }
+    }
 
-        function toggleDropdownSiswaTransaksi() {
-            const cek = document.getElementById('cekSiswaTransaksi');
-            const field = document.getElementById('fieldSiswaTransaksi');
-            const select = document.getElementById('selectSiswaTransaksi');
+    function toggleDropdownSiswaTransaksi() {
+        const cek    = document.getElementById('cekSiswaTransaksi');
+        const field  = document.getElementById('fieldSiswaTransaksi');
+        const select = document.getElementById('selectSiswaTransaksi');
 
-            if (cek.checked) {
-                field.classList.remove('d-none');
-                select.required = true;
-            } else {
-                field.classList.add('d-none');
-                select.required = false;
-            }
+        if(cek.checked){
+            field.classList.remove('d-none');
+            select.required = true;
+        } else {
+            field.classList.add('d-none');
+            select.required  = false;
+            select.value     = '';
         }
+    }
+
+    // Reset modal saat ditutup
+    document.getElementById('modalTransaksi').addEventListener('hidden.bs.modal', function(){
+        const jenis   = document.getElementById('selectJenis');
+        const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
+        const field   = document.getElementById('fieldSiswaTransaksi');
+        const cek     = document.getElementById('cekSiswaTransaksi');
+        const select  = document.getElementById('selectSiswaTransaksi');
+
+        jenis.value      = '';
+        wrapCek.classList.add('d-none');
+        field.classList.add('d-none');
+        cek.checked      = false;
+        select.required  = false;
+        select.value     = '';
+    });
     </script>
 </body>
 
