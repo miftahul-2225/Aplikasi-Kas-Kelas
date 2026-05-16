@@ -710,19 +710,6 @@ document.querySelectorAll('.siswa-item').forEach(item => {
     });
 });
 
-document.querySelectorAll('.pilih-jumlah').forEach(button => {
-    button.addEventListener('click', function () {
-        inputJumlah.value = this.dataset.value;
-        document.querySelectorAll('.pilih-jumlah').forEach(b => {
-            b.classList.remove('btn-primary');
-            b.classList.add('btn-outline-secondary');
-        });
-        this.classList.remove('btn-outline-secondary');
-        this.classList.add('btn-primary');
-        cekJumlahTunggakan();
-    });
-});
-
 // Trigger saat user ketik jumlah manual
 inputJumlah.addEventListener('input', cekJumlahTunggakan);
 
