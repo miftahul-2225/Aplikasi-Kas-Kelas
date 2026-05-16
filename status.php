@@ -1,13 +1,12 @@
 <?php
 require_once 'config/koneksi.php';
- 
+
 session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'bendahara') {
     header("Location: login.php");
     exit();
 }
- 
-// fungsi format bulan indo
+
 function bulanIndo($bulan){
     $nama = [
         1 => 'Januari','Februari','Maret','April','Mei','Juni',
@@ -15,12 +14,11 @@ function bulanIndo($bulan){
     ];
     return $nama[(int)$bulan];
 }
- 
-// fungsi ambil periode / auto generate
+
 function getPeriode($koneksi_db, $tanggal){
     $mulai   = date('Y-m-d', strtotime('monday this week', strtotime($tanggal)));
     $selesai = date('Y-m-d', strtotime('sunday this week', strtotime($tanggal)));
- 
+
     $cek = mysqli_query($koneksi_db, "
         SELECT * FROM tb_periode
         WHERE tanggal_mulai = '$mulai'
@@ -28,10 +26,10 @@ function getPeriode($koneksi_db, $tanggal){
         LIMIT 1
     ");
     if (!$cek) die(mysqli_error($koneksi_db));
- 
+
     $data = mysqli_fetch_assoc($cek);
     if ($data) return $data;
- 
+
     $tanggal_obj    = strtotime($tanggal);
     $tanggal_hari   = date('j', $tanggal_obj);
     $bulan          = date('n', $tanggal_obj);
@@ -41,22 +39,22 @@ function getPeriode($koneksi_db, $tanggal){
     $selesai_format = date('d M', strtotime($selesai));
     $nama_bulan     = bulanIndo($bulan);
     $nama = "Minggu ke-$minggu_ke $nama_bulan $tahun ($mulai_format - $selesai_format)";
- 
+
     $insert = mysqli_query($koneksi_db, "
         INSERT INTO tb_periode 
         (nama_periode, minggu_ke, tahun, tanggal_mulai, tanggal_selesai, status, target)
         VALUES ('$nama', '$minggu_ke', '$tahun', '$mulai', '$selesai', 'aktif', 10000)
     ");
     if (!$insert) die(mysqli_error($koneksi_db));
- 
+
     return ['id_periode' => mysqli_insert_id($koneksi_db), 'target' => 10000];
 }
- 
-$today        = date('Y-m-d');
-$periodeAktif = getPeriode($koneksi_db, $today);
-$id_periode   = $periodeAktif['id_periode'];
+
+$today          = date('Y-m-d');
+$periodeAktif   = getPeriode($koneksi_db, $today);
+$id_periode     = $periodeAktif['id_periode'];
 $target_default = $periodeAktif['target'] ?? 10000;
- 
+
 $data = mysqli_query($koneksi_db, "
     SELECT 
         s.id_siswa,
@@ -70,14 +68,14 @@ $data = mysqli_query($koneksi_db, "
     GROUP BY s.id_siswa
 ");
 if (!$data) die(mysqli_error($koneksi_db));
- 
+
 $lunas = 0; $sebagian = 0; $belum = 0;
 $rows  = [];
- 
+
 while ($row = mysqli_fetch_assoc($data)) {
     $target  = $target_default;
     $dibayar = $row['dibayar'];
- 
+
     if ($dibayar >= $target && $target > 0) {
         $row['status'] = 'lunas';    $lunas++;
     } elseif ($dibayar > 0) {
@@ -88,14 +86,15 @@ while ($row = mysqli_fetch_assoc($data)) {
     $row['target'] = $target;
     $rows[] = $row;
 }
- 
+
 // ── SIMPAN PEMBAYARAN ──
 $id_user = 1;
 if (isset($_POST['simpan'])) {
-    $id_siswa = $_POST['id_siswa'] ?? '';
-    $jumlah   = $_POST['jumlah']   ?? '';
-    $tanggal  = $_POST['tanggal']  ?? '';
- 
+    $id_siswa          = $_POST['id_siswa']          ?? '';
+    $jumlah            = $_POST['jumlah']            ?? '';
+    $tanggal           = $_POST['tanggal']           ?? '';
+    $tunggakan_periode = $_POST['tunggakan_periode'] ?? []; // array periode yang dicentang
+
     if ($id_siswa == '' || $jumlah == '' || $tanggal == '') {
         echo "<script>alert('Data belum lengkap!');</script>";
     } else {
@@ -103,23 +102,86 @@ if (isset($_POST['simpan'])) {
         $jumlah   = (int)$jumlah;
         $tanggal  = mysqli_real_escape_string($koneksi_db, $tanggal);
         $hari     = date('N', strtotime($tanggal));
- 
+
         if ($hari > 5) {
             echo "<script>alert('Pembayaran hanya boleh hari Senin - Jumat!');</script>";
         } else {
-            $periodeBaru      = getPeriode($koneksi_db, $tanggal);
-            $id_periode_input = $periodeBaru['id_periode'];
- 
-            $simpan = mysqli_query($koneksi_db, "
-                INSERT INTO tb_transaksi 
-                (id_siswa, id_user, id_periode, tanggal, jenis, jumlah, keterangan)
-                VALUES ('$id_siswa','$id_user','$id_periode_input','$tanggal','bayar','$jumlah','Iuran Kas')
-            ");
- 
-            if ($simpan) {
+
+            // ── Kalau ada tunggakan yang dipilih, insert per periode ──
+            if (!empty($tunggakan_periode)) {
+
+                $sisa_jumlah = $jumlah;
+                $berhasil    = 0;
+
+                foreach ($tunggakan_periode as $id_p) {
+                    if ($sisa_jumlah <= 0) break;
+
+                    $id_p = (int)$id_p;
+
+                    // Ambil target periode ini
+                    $q_tgt = mysqli_query($koneksi_db, "
+                        SELECT target FROM tb_periode WHERE id_periode = '$id_p'
+                    ");
+                    $target_p = mysqli_fetch_assoc($q_tgt)['target'] ?? 10000;
+
+                    // Cek sudah bayar berapa di periode ini
+                    $q_sdh = mysqli_query($koneksi_db, "
+                        SELECT COALESCE(SUM(jumlah),0) as total
+                        FROM tb_transaksi
+                        WHERE id_siswa = '$id_siswa'
+                        AND id_periode = '$id_p'
+                        AND jenis = 'bayar'
+                    ");
+                    $sudah_bayar = (int)mysqli_fetch_assoc($q_sdh)['total'];
+
+                    $kurang   = $target_p - $sudah_bayar;
+                    if ($kurang <= 0) continue;
+
+                    $bayar_kali_ini = min($sisa_jumlah, $kurang);
+
+                    $simpan = mysqli_query($koneksi_db, "
+                        INSERT INTO tb_transaksi 
+                        (id_siswa, id_user, id_periode, tanggal, jenis, jumlah, keterangan)
+                        VALUES ('$id_siswa','$id_user','$id_p','$tanggal','bayar','$bayar_kali_ini','Iuran Kas')
+                    ");
+
+                    if ($simpan) {
+                        $berhasil++;
+                        $sisa_jumlah -= $bayar_kali_ini;
+                    }
+                }
+
+                // Sisa jumlah yang belum dialokasikan ke tunggakan
+                // dimasukkan ke periode aktif sekarang
+                if ($sisa_jumlah > 0) {
+                    $periodeBaru = getPeriode($koneksi_db, $tanggal);
+                    $id_p_aktif  = $periodeBaru['id_periode'];
+
+                    mysqli_query($koneksi_db, "
+                        INSERT INTO tb_transaksi 
+                        (id_siswa, id_user, id_periode, tanggal, jenis, jumlah, keterangan)
+                        VALUES ('$id_siswa','$id_user','$id_p_aktif','$tanggal','bayar','$sisa_jumlah','Iuran Kas')
+                    ");
+                }
+
                 echo "<script>alert('Pembayaran berhasil!'); window.location='status.php';</script>";
+
             } else {
-                die(mysqli_error($koneksi_db));
+                // ── Tidak ada tunggakan dipilih, insert normal ke periode tanggal ──
+                $periodeBaru      = getPeriode($koneksi_db, $tanggal);
+                $id_periode_input = $periodeBaru['id_periode'];
+
+                $simpan = mysqli_query($koneksi_db, "
+                    INSERT INTO tb_transaksi 
+                    (id_siswa, id_user, id_periode, tanggal, jenis, jumlah, keterangan)
+                    VALUES ('$id_siswa','$id_user','$id_periode_input','$tanggal','bayar','$jumlah','Iuran Kas')
+                ");
+
+                if ($simpan) {
+                    echo "<script>alert('Pembayaran berhasil!'); window.location='status.php';</script>";
+                } else {
+                    die(mysqli_error($koneksi_db));
+                }
             }
         }
     }
@@ -140,10 +202,7 @@ if (isset($_POST['simpan'])) {
             --accent  : #0d6efd;
             --ease    : 0.25s ease;
         }
- 
         body { background: #f4f6fb; margin: 0; }
- 
-        /* ══ SIDEBAR ══ */
         #sidebar {
             position: fixed; top: 0; left: 0;
             width: var(--sb-full); height: 100vh;
@@ -153,7 +212,6 @@ if (isset($_POST['simpan'])) {
             transition: width var(--ease);
         }
         #sidebar.mini { width: var(--sb-mini); }
- 
         .sb-brand {
             display: flex; align-items: center; gap: 10px;
             padding: 18px 13px 14px; white-space: nowrap;
@@ -169,7 +227,6 @@ if (isset($_POST['simpan'])) {
             transition: opacity var(--ease), width var(--ease); overflow: hidden;
         }
         #sidebar.mini .sb-title { opacity: 0; width: 0; }
- 
         .sb-toggle {
             position: absolute; top: 20px; right: -8px;
             width: 26px; height: 26px; background: #fff;
@@ -181,7 +238,6 @@ if (isset($_POST['simpan'])) {
             z-index: 10;
         }
         #sidebar.mini .sb-toggle { top: 56px; right: 4px; transform: rotate(180deg); }
- 
         .sb-nav { flex: 1; padding: 10px 8px; overflow-y: auto; overflow-x: hidden; }
         .sb-nav .nav-link {
             display: flex; align-items: center; gap: 12px;
@@ -192,11 +248,9 @@ if (isset($_POST['simpan'])) {
         }
         .sb-nav .nav-link:hover  { background: #f0f4ff; color: var(--accent); }
         .sb-nav .nav-link.active { background: var(--accent); color: #fff; }
- 
         .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
         .nav-label { transition: opacity var(--ease); }
         #sidebar.mini .nav-label { opacity: 0; pointer-events: none; }
- 
         #sidebar.mini .nav-link::after {
             content: attr(data-tip);
             position: absolute; left: calc(var(--sb-mini) - 4px);
@@ -206,7 +260,6 @@ if (isset($_POST['simpan'])) {
             transition: opacity .15s; z-index: 999;
         }
         #sidebar.mini .nav-link:hover::after { opacity: 1; }
- 
         .sb-footer {
             padding: 10px 8px; border-top: 1px solid #f0f2f7;
             display: flex; flex-direction: column; gap: 6px;
@@ -224,17 +277,11 @@ if (isset($_POST['simpan'])) {
         .sb-btn-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
         .sb-btn-label { transition: opacity var(--ease); }
         #sidebar.mini .sb-btn-label { opacity: 0; pointer-events: none; }
- 
-        /* ══ MAIN ══ */
         #main { margin-left: var(--sb-full); min-height: 100vh; padding: 28px; transition: margin-left var(--ease); }
         #main.expanded { margin-left: var(--sb-mini); }
-
-        /* ══ CUSTOM ══ */
         .siswa-item { cursor: pointer; transition: background .15s; }
         .siswa-item:hover { background: #e9f2ff; }
         #opsiJumlah button { border-radius: 10px; flex: 1; }
-
-        /* ══ BOTTOM NAVIGATION (Mobile Only) ══ */
         #bottom-nav {
             display: none;
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -252,7 +299,6 @@ if (isset($_POST['simpan'])) {
         .bn-item.active { color: var(--accent); }
         .bn-item i { font-size: 19px; }
         .bn-item span { font-size: 9px; line-height: 1; }
-
         .bn-add {
             display: flex; flex-direction: column; align-items: center;
             justify-content: center; gap: 3px; flex: 1; height: 100%;
@@ -267,8 +313,6 @@ if (isset($_POST['simpan'])) {
         }
         .bn-add:active .bn-add-icon { transform: scale(0.92); box-shadow: 0 2px 6px rgba(13,110,253,0.3); }
         .bn-add .bn-add-label { font-size: 9px; color: #aaa; line-height: 1; }
-
-        /* ══ MOBILE ══ */
         @media (max-width: 767.98px) {
             #sidebar    { display: none !important; }
             #mobile-btn { display: none !important; }
@@ -279,18 +323,16 @@ if (isset($_POST['simpan'])) {
     </style>
 </head>
 <body>
- 
+
 <!-- ══ SIDEBAR ══ -->
 <div id="sidebar">
     <div class="sb-brand">
         <div class="sb-logo"><i class="fa-solid fa-graduation-cap"></i></div>
         <span class="sb-title">E Kas Seven</span>
     </div>
- 
     <div class="sb-toggle" onclick="desktopToggle()">
         <i class="fa-solid fa-chevron-left"></i>
     </div>
- 
     <nav class="sb-nav">
         <div class="nav-item mt-1">
             <a href="dashboard.php" class="nav-link" data-tip="Dashboard">
@@ -335,7 +377,6 @@ if (isset($_POST['simpan'])) {
             </a>
         </div>
     </nav>
- 
     <div class="sb-footer">
         <button class="sb-btn primary" data-bs-toggle="modal" data-bs-target="#modalTransaksi">
             <span class="sb-btn-icon"><i class="fa-solid fa-plus"></i></span>
@@ -347,25 +388,19 @@ if (isset($_POST['simpan'])) {
         </a>
     </div>
 </div>
- 
+
 <!-- ══ MAIN ══ -->
 <main id="main">
- 
-    <!-- HEADER -->
     <div class="mb-4">
         <h4 class="fw-bold mb-1">Status Pembayaran Kas Kelas</h4>
         <p class="text-muted small mb-0">Pantau pembayaran uang kas siswa</p>
     </div>
- 
-    <!-- BUTTON INPUT -->
     <div class="mb-4">
         <button class="btn btn-primary rounded-3 py-2 px-4"
                 data-bs-toggle="modal" data-bs-target="#modalBayar">
             <i class="fa-solid fa-dollar-sign me-2"></i>Input Pembayaran Kas
         </button>
     </div>
- 
-    <!-- SUMMARY CARD -->
     <div class="row g-3 mb-4">
         <div class="col-4">
             <div class="card border-0 rounded-4 text-center p-3" style="background:#d1fae5;">
@@ -386,21 +421,17 @@ if (isset($_POST['simpan'])) {
             </div>
         </div>
     </div>
- 
-    <!-- STATUS LIST -->
     <div class="card border rounded-4">
         <div class="card-body p-4">
             <h6 class="fw-semibold mb-4">Status Pembayaran Kas</h6>
- 
             <?php foreach ($rows as $row):
                 $target     = $row['target'] ?? 10000;
                 $dibayar    = $row['dibayar'];
                 $persen     = $target > 0 ? min(($dibayar / $target) * 100, 100) : 0;
                 $kekurangan = $target - $dibayar;
- 
-                if ($row['status'] == 'lunas')         { $warna = 'success'; $label = 'Lunas';       $persen = 100; }
-                elseif ($row['status'] == 'sebagian')  { $warna = 'warning'; $label = 'Sebagian'; }
-                else                                   { $warna = 'danger';  $label = 'Belum Bayar'; }
+                if ($row['status'] == 'lunas')        { $warna = 'success'; $label = 'Lunas';       $persen = 100; }
+                elseif ($row['status'] == 'sebagian') { $warna = 'warning'; $label = 'Sebagian'; }
+                else                                  { $warna = 'danger';  $label = 'Belum Bayar'; }
             ?>
             <div class="card border rounded-4 mb-3">
                 <div class="card-body p-3">
@@ -419,17 +450,14 @@ if (isset($_POST['simpan'])) {
                             <?= $label ?>
                         </span>
                     </div>
- 
                     <div class="d-flex justify-content-between small text-muted mb-1">
                         <span>Dibayar: Rp <?= number_format($dibayar, 0, ',', '.') ?></span>
                         <span>Target: Rp <?= number_format($target, 0, ',', '.') ?></span>
                     </div>
- 
                     <div class="progress rounded-pill" style="height:7px;">
                         <div class="progress-bar bg-<?= $warna ?> rounded-pill"
                              style="width:<?= $persen ?>%"></div>
                     </div>
- 
                     <div class="d-flex justify-content-between small mt-1">
                         <span class="text-muted"><?= round($persen) ?>% terbayar</span>
                         <?php if ($row['status'] == 'sebagian'): ?>
@@ -441,49 +469,41 @@ if (isset($_POST['simpan'])) {
                 </div>
             </div>
             <?php endforeach; ?>
- 
         </div>
     </div>
- 
 </main>
 
-<!-- ══ BOTTOM NAVIGATION (Mobile Only) ══ -->
+<!-- ══ BOTTOM NAVIGATION ══ -->
 <div id="bottom-nav">
     <a href="dashboard.php" class="bn-item">
-        <i class="fa-solid fa-house"></i>
-        <span>Dashboard</span>
+        <i class="fa-solid fa-house"></i><span>Dashboard</span>
     </a>
     <a href="datamurid.php" class="bn-item">
-        <i class="fa-solid fa-users"></i>
-        <span>Murid</span>
+        <i class="fa-solid fa-users"></i><span>Murid</span>
     </a>
     <a href="status.php" class="bn-item active">
-        <i class="fa-regular fa-circle-check"></i>
-        <span>Status</span>
+        <i class="fa-regular fa-circle-check"></i><span>Status</span>
     </a>
     <button class="bn-add" data-bs-toggle="modal" data-bs-target="#modalTransaksi">
         <div class="bn-add-icon"><i class="fa-solid fa-plus"></i></div>
         <span class="bn-add-label">Tambah</span>
     </button>
     <a href="arus.php" class="bn-item">
-        <i class="fa-solid fa-chart-column"></i>
-        <span>Arus Kas</span>
+        <i class="fa-solid fa-chart-column"></i><span>Arus Kas</span>
     </a>
     <a href="laporan.php" class="bn-item">
-        <i class="fa-regular fa-file-lines"></i>
-        <span>Laporan</span>
+        <i class="fa-regular fa-file-lines"></i><span>Laporan</span>
     </a>
     <a href="logout.php" onclick="return confirm('Yakin ingin logout?')" class="bn-item">
-        <i class="fa-solid fa-right-from-bracket"></i>
-        <span>Keluar</span>
+        <i class="fa-solid fa-right-from-bracket"></i><span>Keluar</span>
     </a>
 </div>
- 
+
 <!-- ══ MODAL INPUT PEMBAYARAN ══ -->
 <div class="modal fade" id="modalBayar" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-4 border-0">
-            <form method="POST" action="proses_transaksi.php">
+            <form method="POST" action="status.php">
                 <div class="modal-header border-0">
                     <div>
                         <h5 class="modal-title fw-semibold mb-0">Input Pembayaran Kas Siswa</h5>
@@ -491,9 +511,8 @@ if (isset($_POST['simpan'])) {
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
- 
                 <div class="modal-body pt-0">
- 
+
                     <!-- PILIH SISWA -->
                     <div class="mb-3 position-relative">
                         <label class="form-label">Pilih Siswa</label>
@@ -502,8 +521,6 @@ if (isset($_POST['simpan'])) {
                             <span id="selectedText">Pilih siswa...</span>
                             <i class="fa-solid fa-chevron-down text-muted"></i>
                         </div>
- 
-                        <!-- Dropdown list -->
                         <div id="dropdownList" class="card border rounded-3 shadow-sm mt-1 d-none position-absolute w-100" style="z-index:999; max-height:200px; overflow-y:auto;">
                             <div class="list-group list-group-flush">
                                 <?php
@@ -518,45 +535,45 @@ if (isset($_POST['simpan'])) {
                                 <?php endwhile; ?>
                             </div>
                         </div>
- 
-                        <!-- Info iuran -->
                         <div id="infoIuran" class="mt-2 d-none">
                             <div class="form-control d-flex justify-content-between bg-primary bg-opacity-10 text-primary rounded-3">
                                 <span>Iuran Mingguan:</span>
                                 <strong>Rp 10.000</strong>
                             </div>
                         </div>
- 
-                        <!-- Alert tunggakan -->
                         <div id="alertTunggakan" class="alert alert-primary rounded-3 mt-2 d-none">
                             <strong>Tunggakan:</strong>
                             <div id="isiTunggakan"></div>
                         </div>
- 
                         <input type="hidden" name="id_siswa" id="id_siswa" required>
                         <input type="hidden" name="jenis" value="bayar">
                         <input type="hidden" name="keterangan" value="Iuran Kas">
                     </div>
- 
+
                     <!-- JUMLAH -->
                     <div class="mb-2">
                         <label class="form-label">Jumlah Pembayaran (Rp)</label>
-                        <input type="number" name="jumlah" id="inputJumlah" class="form-control rounded-3" maxlength="10000" required>
+                        <input type="number" name="jumlah" id="inputJumlah" class="form-control rounded-3" required>
                     </div>
- 
                     <div id="opsiJumlah" class="d-flex gap-2 d-none mb-3">
                         <button type="button" class="btn btn-outline-secondary btn-sm pilih-jumlah" data-value="10000">Penuh</button>
                         <button type="button" class="btn btn-outline-secondary btn-sm pilih-jumlah" data-value="5000">Setengah</button>
                         <button type="button" class="btn btn-outline-secondary btn-sm pilih-jumlah" data-value="2000">2.000</button>
                     </div>
- 
+
+                    <!-- CHECKBOX TUNGGAKAN (muncul kalau jumlah >= 2000 & ada tunggakan) -->
+                    <div id="wrapTunggakan" class="d-none mb-3">
+                        <label class="form-label fw-semibold">Alokasikan ke Tunggakan:</label>
+                        <div id="listTunggakan" class="d-flex flex-column gap-2"></div>
+                    </div>
+
                     <!-- TANGGAL -->
                     <div class="mb-3">
                         <label class="form-label">Tanggal Pembayaran</label>
                         <input type="date" name="tanggal" class="form-control rounded-3"
                                value="<?= date('Y-m-d') ?>" required>
                     </div>
- 
+
                     <button type="submit" name="simpan" class="btn btn-primary w-100 rounded-3">
                         Simpan Pembayaran
                     </button>
@@ -565,7 +582,7 @@ if (isset($_POST['simpan'])) {
         </div>
     </div>
 </div>
- 
+
 <!-- ══ MODAL TAMBAH TRANSAKSI ══ -->
 <div class="modal fade" id="modalTransaksi" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -576,8 +593,6 @@ if (isset($_POST['simpan'])) {
             </div>
             <form method="POST" action="proses_transaksi.php">
                 <div class="modal-body">
-
-                    <!-- JENIS -->
                     <div class="mb-3">
                         <label class="form-label">Jenis</label>
                         <select name="jenis" id="selectJenis" class="form-select rounded-3" required onchange="toggleSiswaTransaksi()">
@@ -586,18 +601,12 @@ if (isset($_POST['simpan'])) {
                             <option value="pengeluaran">Pengeluaran</option>
                         </select>
                     </div>
-
-                    <!-- CHECKBOX TERKAIT SISWA (muncul untuk Pemasukan DAN Pengeluaran) -->
                     <div class="mb-3 d-none" id="wrapCekSiswaTransaksi">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="cekSiswaTransaksi" name="ada_siswa" value="1" onchange="toggleDropdownSiswaTransaksi()">
-                            <label class="form-check-label" for="cekSiswaTransaksi">
-                                Terkait siswa
-                            </label>
+                            <label class="form-check-label" for="cekSiswaTransaksi">Terkait siswa</label>
                         </div>
                     </div>
-
-                    <!-- DROPDOWN SISWA -->
                     <div class="mb-3 d-none" id="fieldSiswaTransaksi">
                         <label class="form-label">Siswa</label>
                         <select name="id_siswa" id="selectSiswaTransaksi" class="form-select rounded-3">
@@ -610,7 +619,6 @@ if (isset($_POST['simpan'])) {
                             ?>
                         </select>
                     </div>
-
                     <div class="mb-3">
                         <label class="form-label">Keterangan</label>
                         <textarea name="keterangan" class="form-control rounded-3" rows="2" required></textarea>
@@ -623,157 +631,206 @@ if (isset($_POST['simpan'])) {
                         <label class="form-label">Tanggal</label>
                         <input type="date" name="tanggal" class="form-control rounded-3" required>
                     </div>
-
                     <button type="submit" name="simpan" class="btn btn-primary w-100 rounded-3">Simpan</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
- 
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    /* ── SIDEBAR ── */
-    function desktopToggle() {
-        document.getElementById('sidebar').classList.toggle('mini');
-        document.getElementById('main').classList.toggle('expanded');
-    }
- 
-    /* ── MODAL BAYAR ── */
-    const btn          = document.getElementById('dropdownBtn');
-    const list         = document.getElementById('dropdownList');
-    const text         = document.getElementById('selectedText');
-    const inputId      = document.getElementById('id_siswa');
-    const infoIuran    = document.getElementById('infoIuran');
-    const opsiJumlah   = document.getElementById('opsiJumlah');
-    const inputJumlah  = document.getElementById('inputJumlah');
-    const alertBox     = document.getElementById('alertTunggakan');
-    const isiTunggakan = document.getElementById('isiTunggakan');
-    const modalBayar   = document.getElementById('modalBayar');
- 
-    function resetModal() {
-        text.innerText    = "Pilih siswa...";
-        inputId.value     = "";
-        inputJumlah.value = "";
-        infoIuran.classList.add('d-none');
-        opsiJumlah.classList.add('d-none');
-        alertBox.classList.add('d-none');
-        isiTunggakan.innerHTML = "";
+/* ── SIDEBAR ── */
+function desktopToggle() {
+    document.getElementById('sidebar').classList.toggle('mini');
+    document.getElementById('main').classList.toggle('expanded');
+}
+
+/* ── MODAL BAYAR ── */
+const btn           = document.getElementById('dropdownBtn');
+const list          = document.getElementById('dropdownList');
+const text          = document.getElementById('selectedText');
+const inputId       = document.getElementById('id_siswa');
+const infoIuran     = document.getElementById('infoIuran');
+const opsiJumlah    = document.getElementById('opsiJumlah');
+const inputJumlah   = document.getElementById('inputJumlah');
+const alertBox      = document.getElementById('alertTunggakan');
+const isiTunggakan  = document.getElementById('isiTunggakan');
+const modalBayar    = document.getElementById('modalBayar');
+const wrapTunggakan = document.getElementById('wrapTunggakan');
+const listTunggakan = document.getElementById('listTunggakan');
+
+let dataTunggakan = [];
+
+function resetModal() {
+    text.innerText          = "Pilih siswa...";
+    inputId.value           = "";
+    inputJumlah.value       = "";
+    dataTunggakan           = [];
+    infoIuran.classList.add('d-none');
+    opsiJumlah.classList.add('d-none');
+    alertBox.classList.add('d-none');
+    wrapTunggakan.classList.add('d-none');
+    isiTunggakan.innerHTML  = "";
+    listTunggakan.innerHTML = "";
+    document.querySelectorAll('.pilih-jumlah').forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-outline-secondary');
+    });
+}
+
+btn.addEventListener('click', () => list.classList.toggle('d-none'));
+
+document.addEventListener('click', e => {
+    if (!btn.contains(e.target) && !list.contains(e.target))
+        list.classList.add('d-none');
+});
+
+document.querySelectorAll('.siswa-item').forEach(item => {
+    item.addEventListener('click', () => {
+        text.innerText = item.dataset.nama;
+        inputId.value  = item.dataset.id;
+        list.classList.add('d-none');
+        infoIuran.classList.remove('d-none');
+        opsiJumlah.classList.remove('d-none');
+        wrapTunggakan.classList.add('d-none');
+        listTunggakan.innerHTML = "";
+        dataTunggakan = [];
+
+        fetch('get_tunggakan.php?id_siswa=' + item.dataset.id)
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    dataTunggakan = res.total > 0 ? (res.detail ?? []) : [];
+
+                    if (res.total > 0) {
+                        let html = `Total: <strong>Rp ${res.total.toLocaleString('id-ID')}</strong><br>
+                                    <strong>Mohon Lunaskan Tunggakan Terlebih Dahulu</strong><br><small>`;
+                        res.detail.forEach(d => {
+                            html += `• ${d.periode} : Rp ${d.kurang.toLocaleString('id-ID')}<br>`;
+                        });
+                        html += `</small>`;
+                        isiTunggakan.innerHTML = html;
+                    } else {
+                        isiTunggakan.innerHTML = "Tidak ada tunggakan 🎉";
+                    }
+                    alertBox.classList.remove('d-none');
+                    cekJumlahTunggakan(); // cek ulang kalau jumlah sudah diisi
+                }
+            });
+    });
+});
+
+document.querySelectorAll('.pilih-jumlah').forEach(button => {
+    button.addEventListener('click', function () {
+        inputJumlah.value = this.dataset.value;
         document.querySelectorAll('.pilih-jumlah').forEach(b => {
             b.classList.remove('btn-primary');
             b.classList.add('btn-outline-secondary');
         });
+        this.classList.remove('btn-outline-secondary');
+        this.classList.add('btn-primary');
+        cekJumlahTunggakan();
+    });
+});
+
+// Trigger saat user ketik jumlah manual
+inputJumlah.addEventListener('input', cekJumlahTunggakan);
+
+function cekJumlahTunggakan() {
+    const jumlah = parseInt(inputJumlah.value) || 0;
+
+    if (jumlah >= 2000 && dataTunggakan.length > 0) {
+        renderCheckboxTunggakan(jumlah);
+        wrapTunggakan.classList.remove('d-none');
+    } else {
+        wrapTunggakan.classList.add('d-none');
+        listTunggakan.innerHTML = "";
     }
- 
-    btn.addEventListener('click', () => {
-        list.classList.toggle('d-none');
+}
+
+function renderCheckboxTunggakan(jumlah) {
+    let html        = '';
+    let sisaAlokasi = jumlah;
+
+    dataTunggakan.forEach((d, i) => {
+        const bisa     = Math.min(sisaAlokasi, d.kurang);
+        const disabled = bisa <= 0 ? 'disabled' : '';
+        const checked  = bisa > 0  ? 'checked'  : '';
+        const bgClass  = bisa > 0  ? 'bg-warning bg-opacity-10' : 'bg-light';
+
+        html += `
+        <div class="form-check border rounded-3 p-3 ${bgClass}">
+            <input class="form-check-input" type="checkbox"
+                id="tg_${i}"
+                name="tunggakan_periode[]"
+                value="${d.id_periode}"
+                data-kurang="${d.kurang}"
+                ${checked} ${disabled}>
+            <label class="form-check-label w-100" for="tg_${i}">
+                <div class="d-flex justify-content-between">
+                    <span class="fw-semibold small">${d.periode}</span>
+                    <span class="small text-danger">Kurang: Rp ${d.kurang.toLocaleString('id-ID')}</span>
+                </div>
+                <small class="text-muted">
+                    Akan dibayar: <strong class="text-success">Rp ${bisa.toLocaleString('id-ID')}</strong>
+                </small>
+            </label>
+        </div>`;
+
+        if (bisa > 0) sisaAlokasi -= bisa;
     });
- 
-    document.addEventListener('click', e => {
-        if (!btn.contains(e.target) && !list.contains(e.target)) {
-            list.classList.add('d-none');
-        }
-    });
- 
-    document.querySelectorAll('.siswa-item').forEach(item => {
-        item.addEventListener('click', () => {
-            text.innerText = item.dataset.nama;
-            inputId.value  = item.dataset.id;
-            list.classList.add('d-none');
-            infoIuran.classList.remove('d-none');
-            opsiJumlah.classList.remove('d-none');
- 
-            fetch('get_tunggakan.php?id_siswa=' + item.dataset.id)
-                .then(r => r.json())
-                .then(res => {
-                    if (res.status === 'success') {
-                        if (res.total > 0) {
-                            let html = `Total: <strong>Rp ${res.total.toLocaleString('id-ID')}</strong><br>
-                                        <strong>Mohon Lunaskan Tunggakan Terlebih Dahulu</strong><br><small>`;
-                            res.detail.forEach(d => {
-                                html += `• ${d.periode} : Rp ${d.kurang.toLocaleString('id-ID')}<br>`;
-                            });
-                            html += `</small>`;
-                            isiTunggakan.innerHTML = html;
-                        } else {
-                            isiTunggakan.innerHTML = "Tidak ada tunggakan 🎉";
-                        }
-                        alertBox.classList.remove('d-none');
-                    }
-                });
-        });
-    });
- 
-    document.querySelectorAll('.pilih-jumlah').forEach(button => {
-        button.addEventListener('click', function () {
-            inputJumlah.value = this.dataset.value;
-            document.querySelectorAll('.pilih-jumlah').forEach(b => {
-                b.classList.remove('btn-primary');
-                b.classList.add('btn-outline-secondary');
-            });
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('btn-primary');
-        });
-    });
- 
-    modalBayar.addEventListener('hidden.bs.modal', resetModal);
-       
-    /* ── MODAL TAMBAH TRANSAKSI ── */
-    function toggleSiswaTransaksi() {
-        const jenis   = document.getElementById('selectJenis').value;
-        const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
-        const field   = document.getElementById('fieldSiswaTransaksi');
-        const cek     = document.getElementById('cekSiswaTransaksi');
-        const select  = document.getElementById('selectSiswaTransaksi');
 
-        if(jenis === 'bayar' || jenis === 'pengeluaran'){
-            // Tampilkan checkbox untuk kedua jenis
-            wrapCek.classList.remove('d-none');
+    listTunggakan.innerHTML = html;
+}
 
-            // Update label checkbox sesuai jenis
-            const label = document.querySelector('label[for="cekSiswaTransaksi"]');
-            label.textContent = jenis === 'bayar'
-                ? 'Terkait pembayaran siswa'
-                : 'Terkait pengeluaran untuk siswa';
-        } else {
-            // Reset semua kalau belum pilih jenis
-            wrapCek.classList.add('d-none');
-            field.classList.add('d-none');
-            cek.checked      = false;
-            select.required  = false;
-        }
-    }
+modalBayar.addEventListener('hidden.bs.modal', resetModal);
 
-    function toggleDropdownSiswaTransaksi() {
-        const cek    = document.getElementById('cekSiswaTransaksi');
-        const field  = document.getElementById('fieldSiswaTransaksi');
-        const select = document.getElementById('selectSiswaTransaksi');
+/* ── MODAL TAMBAH TRANSAKSI ── */
+function toggleSiswaTransaksi() {
+    const jenis   = document.getElementById('selectJenis').value;
+    const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
+    const field   = document.getElementById('fieldSiswaTransaksi');
+    const cek     = document.getElementById('cekSiswaTransaksi');
+    const select  = document.getElementById('selectSiswaTransaksi');
+    const label   = document.querySelector('label[for="cekSiswaTransaksi"]');
 
-        if(cek.checked){
-            field.classList.remove('d-none');
-            select.required = true;
-        } else {
-            field.classList.add('d-none');
-            select.required  = false;
-            select.value     = '';
-        }
-    }
-
-    // Reset modal saat ditutup
-    document.getElementById('modalTransaksi').addEventListener('hidden.bs.modal', function(){
-        const jenis   = document.getElementById('selectJenis');
-        const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
-        const field   = document.getElementById('fieldSiswaTransaksi');
-        const cek     = document.getElementById('cekSiswaTransaksi');
-        const select  = document.getElementById('selectSiswaTransaksi');
-
-        jenis.value      = '';
+    if (jenis === 'bayar' || jenis === 'pengeluaran') {
+        wrapCek.classList.remove('d-none');
+        label.textContent = jenis === 'bayar'
+            ? 'Terkait pembayaran siswa'
+            : 'Terkait pengeluaran untuk siswa';
+    } else {
         wrapCek.classList.add('d-none');
         field.classList.add('d-none');
-        cek.checked      = false;
-        select.required  = false;
-        select.value     = '';
-    });
+        cek.checked     = false;
+        select.required = false;
+    }
+}
+
+function toggleDropdownSiswaTransaksi() {
+    const cek    = document.getElementById('cekSiswaTransaksi');
+    const field  = document.getElementById('fieldSiswaTransaksi');
+    const select = document.getElementById('selectSiswaTransaksi');
+
+    if (cek.checked) {
+        field.classList.remove('d-none');
+        select.required = true;
+    } else {
+        field.classList.add('d-none');
+        select.required = false;
+        select.value    = '';
+    }
+}
+
+document.getElementById('modalTransaksi').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('selectJenis').value = '';
+    document.getElementById('wrapCekSiswaTransaksi').classList.add('d-none');
+    document.getElementById('fieldSiswaTransaksi').classList.add('d-none');
+    document.getElementById('cekSiswaTransaksi').checked = false;
+    document.getElementById('selectSiswaTransaksi').required = false;
+    document.getElementById('selectSiswaTransaksi').value    = '';
+});
 </script>
 </body>
 </html>
