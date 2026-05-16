@@ -716,8 +716,9 @@ if (isset($_POST['simpan'])) {
     });
  
     modalBayar.addEventListener('hidden.bs.modal', resetModal);
-
-        function toggleSiswaTransaksi() {
+       
+    /* ── MODAL TAMBAH TRANSAKSI ── */
+    function toggleSiswaTransaksi() {
         const jenis   = document.getElementById('selectJenis').value;
         const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
         const field   = document.getElementById('fieldSiswaTransaksi');
