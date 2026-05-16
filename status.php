@@ -587,15 +587,16 @@ if (isset($_POST['simpan'])) {
                         </select>
                     </div>
 
-                    <!-- CHECKBOX TERKAIT SISWA (hanya muncul kalau Pemasukan) -->
+                    <!-- CHECKBOX TERKAIT SISWA (muncul untuk Pemasukan DAN Pengeluaran) -->
                     <div class="mb-3 d-none" id="wrapCekSiswaTransaksi">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="cekSiswaTransaksi" name="ada_siswa" value="1" onchange="toggleDropdownSiswaTransaksi()">
                             <label class="form-check-label" for="cekSiswaTransaksi">
-                                Terkait pembayaran siswa
+                                Terkait siswa
                             </label>
                         </div>
                     </div>
+
                     <!-- DROPDOWN SISWA -->
                     <div class="mb-3 d-none" id="fieldSiswaTransaksi">
                         <label class="form-label">Siswa</label>
