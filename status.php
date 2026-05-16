@@ -555,11 +555,6 @@ if (isset($_POST['simpan'])) {
                         <label class="form-label">Jumlah Pembayaran (Rp)</label>
                         <input type="number" name="jumlah" id="inputJumlah" class="form-control rounded-3" required>
                     </div>
-                    <div id="opsiJumlah" class="d-flex gap-2 d-none mb-3">
-                        <button type="button" class="btn btn-outline-secondary btn-sm pilih-jumlah" data-value="10000">Penuh</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm pilih-jumlah" data-value="5000">Setengah</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm pilih-jumlah" data-value="2000">2.000</button>
-                    </div>
 
                     <!-- CHECKBOX TUNGGAKAN (muncul kalau jumlah >= 2000 & ada tunggakan) -->
                     <div id="wrapTunggakan" class="d-none mb-3">
