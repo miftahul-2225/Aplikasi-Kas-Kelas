@@ -666,10 +666,6 @@ function resetModal() {
     wrapTunggakan.classList.add('d-none');
     isiTunggakan.innerHTML  = "";
     listTunggakan.innerHTML = "";
-    document.querySelectorAll('.pilih-jumlah').forEach(b => {
-        b.classList.remove('btn-primary');
-        b.classList.add('btn-outline-secondary');
-    });
 }
 
 btn.addEventListener('click', () => list.classList.toggle('d-none'));
