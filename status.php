@@ -681,7 +681,6 @@ document.querySelectorAll('.siswa-item').forEach(item => {
         inputId.value  = item.dataset.id;
         list.classList.add('d-none');
         infoIuran.classList.remove('d-none');
-        opsiJumlah.classList.remove('d-none');
         wrapTunggakan.classList.add('d-none');
         listTunggakan.innerHTML = "";
         dataTunggakan = [];
