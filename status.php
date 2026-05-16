@@ -647,7 +647,6 @@ const list          = document.getElementById('dropdownList');
 const text          = document.getElementById('selectedText');
 const inputId       = document.getElementById('id_siswa');
 const infoIuran     = document.getElementById('infoIuran');
-const opsiJumlah    = document.getElementById('opsiJumlah');
 const inputJumlah   = document.getElementById('inputJumlah');
 const alertBox      = document.getElementById('alertTunggakan');
 const isiTunggakan  = document.getElementById('isiTunggakan');
