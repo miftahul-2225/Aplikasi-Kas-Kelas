@@ -424,68 +424,69 @@ $totalTransaksi = mysqli_num_rows($data);
     </div>
 
     <!-- ══ MODAL TAMBAH TRANSAKSI ══ -->
-    <div class="modal fade" id="modalTransaksi" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-semibold">Tambah Transaksi</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" action="proses_transaksi.php">
-                    <div class="modal-body">
-
-                        <!-- JENIS -->
-                        <div class="mb-3">
-                            <label class="form-label">Jenis</label>
-                            <select name="jenis" id="selectJenis" class="form-select rounded-3" required onchange="toggleSiswaTransaksi()">
-                                <option value="">-- Pilih --</option>
-                                <option value="bayar">Pemasukan</option>
-                                <option value="pengeluaran">Pengeluaran</option>
-                            </select>
-                        </div>
-
-                        <!-- CHECKBOX TERKAIT SISWA (hanya muncul kalau Pemasukan) -->
-                        <div class="mb-3 d-none" id="wrapCekSiswaTransaksi">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="cekSiswaTransaksi" name="ada_siswa" value="1" onchange="toggleDropdownSiswaTransaksi()">
-                                <label class="form-check-label" for="cekSiswaTransaksi">
-                                    Terkait pembayaran siswa
-                                </label>
-                            </div>
-                        </div>
-                        <!-- DROPDOWN SISWA -->
-                        <div class="mb-3 d-none" id="fieldSiswaTransaksi">
-                            <label class="form-label">Siswa</label>
-                            <select name="id_siswa" id="selectSiswaTransaksi" class="form-select rounded-3">
-                                <option value="">-- Pilih Siswa --</option>
-                                <?php
-                                $qs = mysqli_query($koneksi_db, "SELECT id_siswa, nama_siswa FROM tb_siswa ORDER BY nama_siswa ASC");
-                                while ($row = mysqli_fetch_assoc($qs)) {
-                                    echo "<option value='{$row['id_siswa']}'>{$row['nama_siswa']}</option>";
-                                }
-                                ?>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Keterangan</label>
-                            <textarea name="keterangan" class="form-control rounded-3" rows="2" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Jumlah</label>
-                            <input type="number" name="jumlah" class="form-control rounded-3" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Tanggal</label>
-                            <input type="date" name="tanggal" class="form-control rounded-3" required>
-                        </div>
-
-                        <button type="submit" name="simpan" class="btn btn-primary w-100 rounded-3">Simpan</button>
-                    </div>
-                </form>
+<div class="modal fade" id="modalTransaksi" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold">Tambah Transaksi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+            <form method="POST" action="proses_transaksi.php">
+                <div class="modal-body">
+
+                    <!-- JENIS -->
+                    <div class="mb-3">
+                        <label class="form-label">Jenis</label>
+                        <select name="jenis" id="selectJenis" class="form-select rounded-3" required onchange="toggleSiswaTransaksi()">
+                            <option value="">-- Pilih --</option>
+                            <option value="bayar">Pemasukan</option>
+                            <option value="pengeluaran">Pengeluaran</option>
+                        </select>
+                    </div>
+
+                    <!-- CHECKBOX TERKAIT SISWA (muncul untuk Pemasukan DAN Pengeluaran) -->
+                    <div class="mb-3 d-none" id="wrapCekSiswaTransaksi">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="cekSiswaTransaksi" name="ada_siswa" value="1" onchange="toggleDropdownSiswaTransaksi()">
+                            <label class="form-check-label" for="cekSiswaTransaksi">
+                                Terkait siswa
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- DROPDOWN SISWA -->
+                    <div class="mb-3 d-none" id="fieldSiswaTransaksi">
+                        <label class="form-label">Siswa</label>
+                        <select name="id_siswa" id="selectSiswaTransaksi" class="form-select rounded-3">
+                            <option value="">-- Pilih Siswa --</option>
+                            <?php
+                            $qs = mysqli_query($koneksi_db, "SELECT id_siswa, nama_siswa FROM tb_siswa ORDER BY nama_siswa ASC");
+                            while($row = mysqli_fetch_assoc($qs)){
+                                echo "<option value='{$row['id_siswa']}'>{$row['nama_siswa']}</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Keterangan</label>
+                        <textarea name="keterangan" class="form-control rounded-3" rows="2" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Jumlah</label>
+                        <input type="number" name="jumlah" class="form-control rounded-3" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tanggal</label>
+                        <input type="date" name="tanggal" class="form-control rounded-3" required>
+                    </div>
+
+                    <button type="submit" name="simpan" class="btn btn-primary w-100 rounded-3">Simpan</button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
