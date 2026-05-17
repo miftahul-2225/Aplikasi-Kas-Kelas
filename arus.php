@@ -1,18 +1,18 @@
 <?php
 require_once 'config/koneksi.php';
- 
+
 session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'bendahara') {
     header("Location: login.php");
     exit();
 }
- 
+
 $bulan  = $_GET['bulan']  ?? date('m');
 $tahun  = $_GET['tahun']  ?? date('Y');
 $limit  = $_GET['limit']  ?? 10;
 $filter = $_GET['filter'] ?? 'all';
 $sort   = $_GET['sort']   ?? 'nama';
- 
+
 $periode = mysqli_query($koneksi_db, "
     SELECT * FROM tb_periode 
     WHERE status='aktif'
@@ -20,28 +20,51 @@ $periode = mysqli_query($koneksi_db, "
     AND tanggal_selesai >= '$tahun-$bulan-01'
     ORDER BY tanggal_mulai ASC
 ");
- 
+
 $q_siswa     = mysqli_query($koneksi_db, "SELECT COUNT(*) as total FROM tb_siswa");
 $total_siswa = mysqli_fetch_assoc($q_siswa)['total'];
- 
-$q_total = mysqli_query($koneksi_db, "
-    SELECT COALESCE(SUM(jumlah),0) as total 
-    FROM tb_transaksi 
-    WHERE jenis='bayar'
-    AND MONTH(tanggal) = '$bulan'
-    AND YEAR(tanggal) = '$tahun'
-");
-$total_terkumpul = mysqli_fetch_assoc($q_total)['total'];
- 
+
+// Kumpulkan periode list dulu
 $total_target_bulanan = 0;
-$periode_list = [];
- 
+$periode_list         = [];
+
 while ($p = mysqli_fetch_assoc($periode)) {
-    $periode_list[] = $p;
+    $periode_list[]        = $p;
     $total_target_bulanan += ($p['target'] ?? 10000) * $total_siswa;
 }
- 
+
+// Ambil id_periode bulan ini
+$id_periode_list = array_column($periode_list, 'id_periode');
+$id_periode_in   = implode(',', $id_periode_list);
+
+// Total terkumpul berdasarkan id_periode (bukan MONTH tanggal)
+$total_terkumpul = 0;
+if (!empty($id_periode_in)) {
+    $q_total = mysqli_query($koneksi_db, "
+        SELECT COALESCE(SUM(jumlah),0) as total
+        FROM tb_transaksi
+        WHERE jenis = 'bayar'
+        AND id_periode IN ($id_periode_in)
+    ");
+    $total_terkumpul = mysqli_fetch_assoc($q_total)['total'];
+}
+
 $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
+
+// Ambil data bayar per periode & siswa berdasarkan id_periode
+$data_bayar = [];
+if (!empty($id_periode_in)) {
+    $q_all = mysqli_query($koneksi_db, "
+        SELECT id_periode, id_siswa, SUM(jumlah) as total
+        FROM tb_transaksi
+        WHERE jenis = 'bayar'
+        AND id_periode IN ($id_periode_in)
+        GROUP BY id_periode, id_siswa
+    ");
+    while ($d = mysqli_fetch_assoc($q_all)) {
+        $data_bayar[$d['id_periode']][$d['id_siswa']] = $d['total'];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -59,10 +82,7 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             --accent  : #0d6efd;
             --ease    : 0.25s ease;
         }
- 
         body { background: #f4f6fb; margin: 0; }
- 
-        /* ══ SIDEBAR ══ */
         #sidebar {
             position: fixed; top: 0; left: 0;
             width: var(--sb-full); height: 100vh;
@@ -72,7 +92,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             transition: width var(--ease);
         }
         #sidebar.mini { width: var(--sb-mini); }
- 
         .sb-brand {
             display: flex; align-items: center; gap: 10px;
             padding: 18px 13px 14px; white-space: nowrap;
@@ -88,7 +107,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             transition: opacity var(--ease), width var(--ease); overflow: hidden;
         }
         #sidebar.mini .sb-title { opacity: 0; width: 0; }
- 
         .sb-toggle {
             position: absolute; top: 20px; right: -8px;
             width: 26px; height: 26px; background: #fff;
@@ -100,7 +118,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             z-index: 10;
         }
         #sidebar.mini .sb-toggle { top: 56px; right: 4px; transform: rotate(180deg); }
- 
         .sb-nav { flex: 1; padding: 10px 8px; overflow-y: auto; overflow-x: hidden; }
         .sb-nav .nav-link {
             display: flex; align-items: center; gap: 12px;
@@ -111,11 +128,9 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
         }
         .sb-nav .nav-link:hover  { background: #f0f4ff; color: var(--accent); }
         .sb-nav .nav-link.active { background: var(--accent); color: #fff; }
- 
         .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
         .nav-label { transition: opacity var(--ease); }
         #sidebar.mini .nav-label { opacity: 0; pointer-events: none; }
- 
         #sidebar.mini .nav-link::after {
             content: attr(data-tip);
             position: absolute; left: calc(var(--sb-mini) - 4px);
@@ -125,7 +140,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             transition: opacity .15s; z-index: 999;
         }
         #sidebar.mini .nav-link:hover::after { opacity: 1; }
- 
         .sb-footer {
             padding: 10px 8px; border-top: 1px solid #f0f2f7;
             display: flex; flex-direction: column; gap: 6px;
@@ -143,12 +157,8 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
         .sb-btn-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
         .sb-btn-label { transition: opacity var(--ease); }
         #sidebar.mini .sb-btn-label { opacity: 0; pointer-events: none; }
- 
-        /* ══ MAIN ══ */
         #main { margin-left: var(--sb-full); min-height: 100vh; padding: 28px; transition: margin-left var(--ease); }
         #main.expanded { margin-left: var(--sb-mini); }
-
-        /* ══ BOTTOM NAVIGATION (Mobile Only) ══ */
         #bottom-nav {
             display: none;
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -166,7 +176,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
         .bn-item.active { color: var(--accent); }
         .bn-item i { font-size: 19px; }
         .bn-item span { font-size: 9px; line-height: 1; }
-
         .bn-add {
             display: flex; flex-direction: column; align-items: center;
             justify-content: center; gap: 3px; flex: 1; height: 100%;
@@ -181,8 +190,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
         }
         .bn-add:active .bn-add-icon { transform: scale(0.92); box-shadow: 0 2px 6px rgba(13,110,253,0.3); }
         .bn-add .bn-add-label { font-size: 9px; color: #aaa; line-height: 1; }
-
-        /* ══ MOBILE ══ */
         @media (max-width: 767.98px) {
             #sidebar    { display: none !important; }
             #mobile-btn { display: none !important; }
@@ -193,18 +200,16 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
     </style>
 </head>
 <body>
- 
+
 <!-- ══ SIDEBAR ══ -->
 <div id="sidebar">
     <div class="sb-brand">
         <div class="sb-logo"><i class="fa-solid fa-graduation-cap"></i></div>
         <span class="sb-title">E Kas Seven</span>
     </div>
- 
     <div class="sb-toggle" onclick="desktopToggle()">
         <i class="fa-solid fa-chevron-left"></i>
     </div>
- 
     <nav class="sb-nav">
         <div class="nav-item mt-1">
             <a href="dashboard.php" class="nav-link" data-tip="Dashboard">
@@ -249,7 +254,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             </a>
         </div>
     </nav>
- 
     <div class="sb-footer">
         <button class="sb-btn primary" data-bs-toggle="modal" data-bs-target="#modalTransaksi">
             <span class="sb-btn-icon"><i class="fa-solid fa-plus"></i></span>
@@ -261,16 +265,15 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
         </a>
     </div>
 </div>
- 
+
 <!-- ══ MAIN ══ -->
 <main id="main">
- 
-    <!-- HEADER -->
+
     <div class="mb-4">
         <h4 class="fw-bold mb-1">Arus Kas dan Kalender Pemantauan Siswa</h4>
         <p class="text-muted small mb-0">Pantau pembayaran uang kas dan tagihan siswa</p>
     </div>
- 
+
     <!-- KALENDER NAV -->
     <div class="card border-0 rounded-4 mb-4 p-4" style="background:#eaf2ff;">
         <div class="d-flex align-items-center gap-3 mb-3">
@@ -283,7 +286,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                 <small class="text-primary">Rp 10.000 per minggu</small>
             </div>
         </div>
- 
         <div class="d-flex justify-content-between align-items-center">
             <button id="prevMonth" class="btn btn-white border rounded-pill px-3">
                 <i class="bi bi-chevron-left"></i> Sebelumnya
@@ -297,7 +299,7 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             </button>
         </div>
     </div>
- 
+
     <!-- STATISTIK -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">
@@ -349,23 +351,8 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             </div>
         </div>
     </div>
- 
+
     <!-- PERIODE CARDS -->
-    <?php
-    $data_bayar = [];
-    $q_all = mysqli_query($koneksi_db, "
-        SELECT id_periode, id_siswa, SUM(jumlah) as total
-        FROM tb_transaksi
-        WHERE jenis='bayar'
-        AND MONTH(tanggal) = '$bulan'
-        AND YEAR(tanggal) = '$tahun'
-        GROUP BY id_periode, id_siswa
-    ");
-    while ($d = mysqli_fetch_assoc($q_all)) {
-        $data_bayar[$d['id_periode']][$d['id_siswa']] = $d['total'];
-    }
-    ?>
- 
     <div class="row g-4">
     <?php foreach ($periode_list as $p):
         $id_periode   = $p['id_periode'];
@@ -375,7 +362,7 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
     ?>
     <div class="col-md-6">
         <div class="card border-0 rounded-4 overflow-hidden shadow-sm">
- 
+
             <!-- HEADER CARD -->
             <div class="p-4 text-white" style="background: linear-gradient(135deg,#4f8cff,#1e40af);">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -385,7 +372,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                         <?= date('d M', strtotime($p['tanggal_selesai'])) ?>
                     </span>
                 </div>
- 
                 <div class="d-flex justify-content-between align-items-end mb-3">
                     <div>
                         <p class="small opacity-75 mb-0">Terkumpul</p>
@@ -396,7 +382,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                         <h6 class="fw-bold mb-0">Rp <?= number_format($target_total, 0, ',', '.') ?></h6>
                     </div>
                 </div>
- 
                 <div class="progress rounded-pill" style="height:8px;">
                     <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
                          style="width:<?= $persen ?>%"></div>
@@ -406,7 +391,7 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                     <span>Kurang Rp <?= number_format($target_total - $total, 0, ',', '.') ?></span>
                 </div>
             </div>
- 
+
             <!-- FILTER -->
             <div class="p-3 border-bottom bg-white">
                 <div class="d-flex gap-2 flex-wrap">
@@ -428,35 +413,35 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                     </select>
                 </div>
             </div>
- 
+
             <!-- LIST SISWA -->
             <div class="p-3 bg-white">
                 <?php
                 $data_siswa = [];
-                $siswa_loop = mysqli_query($koneksi_db, "SELECT * FROM tb_siswa");
+                $siswa_loop = mysqli_query($koneksi_db, "SELECT * FROM tb_siswa ORDER BY nama_siswa ASC");
                 while ($s = mysqli_fetch_assoc($siswa_loop)) {
                     $bayar  = $data_bayar[$id_periode][$s['id_siswa']] ?? 0;
                     $target = $p['target'] ?? 10000;
- 
+
                     if ($bayar >= $target)  { $status='lunas';    $warna='success'; $icon='check-circle'; }
                     elseif ($bayar > 0)     { $status='sebagian'; $warna='warning'; $icon='exclamation-circle'; }
                     else                    { $status='belum';    $warna='danger';  $icon='times-circle'; }
- 
+
                     if ($filter != 'all' && $status != $filter) continue;
- 
+
                     $s['bayar']  = $bayar;
                     $s['status'] = $status;
                     $s['warna']  = $warna;
                     $s['icon']   = $icon;
                     $data_siswa[] = $s;
                 }
- 
+
                 if ($sort == 'bayar_desc')    usort($data_siswa, fn($a,$b) => $b['bayar'] <=> $a['bayar']);
                 elseif ($sort == 'bayar_asc') usort($data_siswa, fn($a,$b) => $a['bayar'] <=> $b['bayar']);
                 else                          usort($data_siswa, fn($a,$b) => strcmp($a['nama_siswa'], $b['nama_siswa']));
- 
+
                 $data_siswa = array_slice($data_siswa, 0, $limit);
- 
+
                 foreach ($data_siswa as $s): ?>
                 <div class="d-flex justify-content-between align-items-center border rounded-3 p-2 mb-2 bg-light">
                     <div class="d-flex align-items-center gap-2">
@@ -474,51 +459,45 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                     </span>
                 </div>
                 <?php endforeach; ?>
- 
+
                 <?php if (empty($data_siswa)): ?>
                 <p class="text-muted text-center small py-2">Tidak ada data.</p>
                 <?php endif; ?>
             </div>
- 
+
         </div>
     </div>
     <?php endforeach; ?>
     </div>
- 
+
 </main>
 
-<!-- ══ BOTTOM NAVIGATION (Mobile Only) ══ -->
+<!-- ══ BOTTOM NAVIGATION ══ -->
 <div id="bottom-nav">
     <a href="dashboard.php" class="bn-item">
-        <i class="fa-solid fa-house"></i>
-        <span>Dashboard</span>
+        <i class="fa-solid fa-house"></i><span>Dashboard</span>
     </a>
     <a href="datamurid.php" class="bn-item">
-        <i class="fa-solid fa-users"></i>
-        <span>Murid</span>
+        <i class="fa-solid fa-users"></i><span>Murid</span>
     </a>
     <a href="status.php" class="bn-item">
-        <i class="fa-regular fa-circle-check"></i>
-        <span>Status</span>
+        <i class="fa-regular fa-circle-check"></i><span>Status</span>
     </a>
     <button class="bn-add" data-bs-toggle="modal" data-bs-target="#modalTransaksi">
         <div class="bn-add-icon"><i class="fa-solid fa-plus"></i></div>
         <span class="bn-add-label">Tambah</span>
     </button>
     <a href="arus.php" class="bn-item active">
-        <i class="fa-solid fa-chart-column"></i>
-        <span>Arus Kas</span>
+        <i class="fa-solid fa-chart-column"></i><span>Arus Kas</span>
     </a>
     <a href="laporan.php" class="bn-item">
-        <i class="fa-regular fa-file-lines"></i>
-        <span>Laporan</span>
+        <i class="fa-regular fa-file-lines"></i><span>Laporan</span>
     </a>
     <a href="logout.php" onclick="return confirm('Yakin ingin logout?')" class="bn-item">
-        <i class="fa-solid fa-right-from-bracket"></i>
-        <span>Keluar</span>
+        <i class="fa-solid fa-right-from-bracket"></i><span>Keluar</span>
     </a>
 </div>
- 
+
 <!-- ══ MODAL TAMBAH TRANSAKSI ══ -->
 <div class="modal fade" id="modalTransaksi" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -529,8 +508,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
             </div>
             <form method="POST" action="proses_transaksi.php">
                 <div class="modal-body">
-
-                    <!-- JENIS -->
                     <div class="mb-3">
                         <label class="form-label">Jenis</label>
                         <select name="jenis" id="selectJenis" class="form-select rounded-3" required onchange="toggleSiswaTransaksi()">
@@ -539,18 +516,12 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                             <option value="pengeluaran">Pengeluaran</option>
                         </select>
                     </div>
-
-                    <!-- CHECKBOX TERKAIT SISWA (muncul untuk Pemasukan DAN Pengeluaran) -->
                     <div class="mb-3 d-none" id="wrapCekSiswaTransaksi">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="cekSiswaTransaksi" name="ada_siswa" value="1" onchange="toggleDropdownSiswaTransaksi()">
-                            <label class="form-check-label" for="cekSiswaTransaksi">
-                                Terkait siswa
-                            </label>
+                            <label class="form-check-label" for="cekSiswaTransaksi">Terkait siswa</label>
                         </div>
                     </div>
-
-                    <!-- DROPDOWN SISWA -->
                     <div class="mb-3 d-none" id="fieldSiswaTransaksi">
                         <label class="form-label">Siswa</label>
                         <select name="id_siswa" id="selectSiswaTransaksi" class="form-select rounded-3">
@@ -563,7 +534,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                             ?>
                         </select>
                     </div>
-
                     <div class="mb-3">
                         <label class="form-label">Keterangan</label>
                         <textarea name="keterangan" class="form-control rounded-3" rows="2" required></textarea>
@@ -576,7 +546,6 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
                         <label class="form-label">Tanggal</label>
                         <input type="date" name="tanggal" class="form-control rounded-3" required>
                     </div>
-
                     <button type="submit" name="simpan" class="btn btn-primary w-100 rounded-3">Simpan</button>
                 </div>
             </form>
@@ -586,109 +555,98 @@ $tunggakan = max(0, $total_target_bulanan - $total_terkumpul);
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    /* ── SIDEBAR ── */
-    function desktopToggle() {
-        document.getElementById('sidebar').classList.toggle('mini');
-        document.getElementById('main').classList.toggle('expanded');
-    }
- 
-    /* ── KALENDER ── */
-    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni",
-                        "Juli","Agustus","September","Oktober","November","Desember"];
- 
-    let currentDate = new Date(<?= $tahun ?>, <?= $bulan ?> - 1);
- 
-    function renderCalendar() {
-        const m = currentDate.getMonth();
-        const y = currentDate.getFullYear();
-        document.getElementById('monthYear').textContent = monthNames[m] + ' ' + y;
-        const today = new Date();
-        document.getElementById('currentLabel').textContent =
-            (m === today.getMonth() && y === today.getFullYear()) ? 'Bulan Ini' : '';
-    }
- 
-    function updateURL() {
-        window.location.href = `?bulan=${currentDate.getMonth()+1}&tahun=${currentDate.getFullYear()}`;
-    }
- 
-    document.getElementById('prevMonth').addEventListener('click', () => {
-        currentDate.setMonth(currentDate.getMonth() - 1);
-        renderCalendar(); updateURL();
-    });
-    document.getElementById('nextMonth').addEventListener('click', () => {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-        renderCalendar(); updateURL();
-    });
- 
-    renderCalendar();
- 
-    /* ── FILTER ── */
-    function updateFilter() {
-        const url = new URL(window.location.href);
-        url.searchParams.set('filter', document.getElementById('filterStatus').value);
-        url.searchParams.set('limit',  document.getElementById('limitData').value);
-        url.searchParams.set('sort',   document.getElementById('sortData').value);
-        url.searchParams.set('bulan',  <?= $bulan ?>);
-        url.searchParams.set('tahun',  <?= $tahun ?>);
-        window.location.href = url.toString();
-    }
+/* ── SIDEBAR ── */
+function desktopToggle() {
+    document.getElementById('sidebar').classList.toggle('mini');
+    document.getElementById('main').classList.toggle('expanded');
+}
 
-    /* ── MODAL TAMBAH TRANSAKSI ── */
-    function toggleSiswaTransaksi() {
-        const jenis   = document.getElementById('selectJenis').value;
-        const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
-        const field   = document.getElementById('fieldSiswaTransaksi');
-        const cek     = document.getElementById('cekSiswaTransaksi');
-        const select  = document.getElementById('selectSiswaTransaksi');
+/* ── KALENDER ── */
+const monthNames = ["Januari","Februari","Maret","April","Mei","Juni",
+                    "Juli","Agustus","September","Oktober","November","Desember"];
 
-        if(jenis === 'bayar' || jenis === 'pengeluaran'){
-            // Tampilkan checkbox untuk kedua jenis
-            wrapCek.classList.remove('d-none');
+let currentDate = new Date(<?= $tahun ?>, <?= $bulan ?> - 1);
 
-            // Update label checkbox sesuai jenis
-            const label = document.querySelector('label[for="cekSiswaTransaksi"]');
-            label.textContent = jenis === 'bayar'
-                ? 'Terkait pembayaran siswa'
-                : 'Terkait pengeluaran untuk siswa';
-        } else {
-            // Reset semua kalau belum pilih jenis
-            wrapCek.classList.add('d-none');
-            field.classList.add('d-none');
-            cek.checked      = false;
-            select.required  = false;
-        }
-    }
+function renderCalendar() {
+    const m = currentDate.getMonth();
+    const y = currentDate.getFullYear();
+    document.getElementById('monthYear').textContent = monthNames[m] + ' ' + y;
+    const today = new Date();
+    document.getElementById('currentLabel').textContent =
+        (m === today.getMonth() && y === today.getFullYear()) ? 'Bulan Ini' : '';
+}
 
-    function toggleDropdownSiswaTransaksi() {
-        const cek    = document.getElementById('cekSiswaTransaksi');
-        const field  = document.getElementById('fieldSiswaTransaksi');
-        const select = document.getElementById('selectSiswaTransaksi');
+function updateURL() {
+    window.location.href = `?bulan=${currentDate.getMonth()+1}&tahun=${currentDate.getFullYear()}`;
+}
 
-        if(cek.checked){
-            field.classList.remove('d-none');
-            select.required = true;
-        } else {
-            field.classList.add('d-none');
-            select.required  = false;
-            select.value     = '';
-        }
-    }
+document.getElementById('prevMonth').addEventListener('click', () => {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar(); updateURL();
+});
+document.getElementById('nextMonth').addEventListener('click', () => {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar(); updateURL();
+});
 
-    // Reset modal saat ditutup
-    document.getElementById('modalTransaksi').addEventListener('hidden.bs.modal', function(){
-        const jenis   = document.getElementById('selectJenis');
-        const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
-        const field   = document.getElementById('fieldSiswaTransaksi');
-        const cek     = document.getElementById('cekSiswaTransaksi');
-        const select  = document.getElementById('selectSiswaTransaksi');
+renderCalendar();
 
-        jenis.value      = '';
+/* ── FILTER ── */
+function updateFilter() {
+    const url = new URL(window.location.href);
+    url.searchParams.set('filter', document.getElementById('filterStatus').value);
+    url.searchParams.set('limit',  document.getElementById('limitData').value);
+    url.searchParams.set('sort',   document.getElementById('sortData').value);
+    url.searchParams.set('bulan',  <?= $bulan ?>);
+    url.searchParams.set('tahun',  <?= $tahun ?>);
+    window.location.href = url.toString();
+}
+
+/* ── MODAL TAMBAH TRANSAKSI ── */
+function toggleSiswaTransaksi() {
+    const jenis   = document.getElementById('selectJenis').value;
+    const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
+    const field   = document.getElementById('fieldSiswaTransaksi');
+    const cek     = document.getElementById('cekSiswaTransaksi');
+    const select  = document.getElementById('selectSiswaTransaksi');
+    const label   = document.querySelector('label[for="cekSiswaTransaksi"]');
+
+    if (jenis === 'bayar' || jenis === 'pengeluaran') {
+        wrapCek.classList.remove('d-none');
+        label.textContent = jenis === 'bayar'
+            ? 'Terkait pembayaran siswa'
+            : 'Terkait pengeluaran untuk siswa';
+    } else {
         wrapCek.classList.add('d-none');
         field.classList.add('d-none');
-        cek.checked      = false;
-        select.required  = false;
-        select.value     = '';
-    });
+        cek.checked     = false;
+        select.required = false;
+    }
+}
+
+function toggleDropdownSiswaTransaksi() {
+    const cek    = document.getElementById('cekSiswaTransaksi');
+    const field  = document.getElementById('fieldSiswaTransaksi');
+    const select = document.getElementById('selectSiswaTransaksi');
+
+    if (cek.checked) {
+        field.classList.remove('d-none');
+        select.required = true;
+    } else {
+        field.classList.add('d-none');
+        select.required = false;
+        select.value    = '';
+    }
+}
+
+document.getElementById('modalTransaksi').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('selectJenis').value = '';
+    document.getElementById('wrapCekSiswaTransaksi').classList.add('d-none');
+    document.getElementById('fieldSiswaTransaksi').classList.add('d-none');
+    document.getElementById('cekSiswaTransaksi').checked = false;
+    document.getElementById('selectSiswaTransaksi').required = false;
+    document.getElementById('selectSiswaTransaksi').value    = '';
+});
 </script>
 </body>
 </html>
