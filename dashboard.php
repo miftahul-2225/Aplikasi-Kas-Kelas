@@ -337,7 +337,7 @@ $transaksi = mysqli_query($koneksi_db, "
                     <div class="d-flex align-items-center gap-3">
                         <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                              style="width:36px;height:36px;background:<?= $row['jenis'] == 'bayar' ? '#d1fae5' : '#fee2e2' ?>;">
-                            <i class="fa-solid <?= $row['jenis'] == 'bayar' ? 'fa-arrow-down text-success' : 'fa-arrow-up text-danger' ?>" style="font-size:13px;"></i>
+                            <i class="fa-solid <?= $row['jenis'] == 'bayar' ? 'fa-arrow-up text-success' : 'fa-arrow-down text-danger' ?>" style="font-size:13px;"></i>
                         </div>
                         <div>
                             <p class="fw-semibold small mb-0">
