@@ -8,7 +8,6 @@ if($id_siswa == ''){
     exit;
 }
 
-// ambil semua periode
 $query = mysqli_query($koneksi_db, "
     SELECT p.id_periode, p.nama_periode, p.target,
     COALESCE(SUM(t.jumlah),0) as dibayar
@@ -29,8 +28,9 @@ while($row = mysqli_fetch_assoc($query)){
 
     if($kurang > 0){
         $data[] = [
-            'periode' => $row['nama_periode'],
-            'kurang' => $kurang
+            'id_periode' => $row['id_periode'], 
+            'periode'    => $row['nama_periode'],
+            'kurang'     => $kurang
         ];
         $total_tunggakan += $kurang;
     }
@@ -38,6 +38,6 @@ while($row = mysqli_fetch_assoc($query)){
 
 echo json_encode([
     'status' => 'success',
-    'total' => $total_tunggakan,
+    'total'  => $total_tunggakan,
     'detail' => $data
 ]);
