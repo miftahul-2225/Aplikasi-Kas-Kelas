@@ -394,10 +394,10 @@ $total_kategori = mysqli_fetch_assoc($q_kategori)['total'];
         </div>
     </div>
  
-    <!-- STATUS SISWA -->
+    <!-- STATUS SISWA - Disesuaikan dengan struktur DB -->
     <div class="card border rounded-4 mb-4">
         <div class="card-body p-4">
-            <h6 class="fw-semibold mb-3">Status Pembayaran Siswa</h6>
+            <h6 class="fw-semibold mb-3">Rekap Total Transaksi Kas Kelas</h6>
 
             <!-- TABS -->
             <ul class="nav nav-pills mb-3" id="statusTab" role="tablist">
@@ -691,7 +691,7 @@ $total_kategori = mysqli_fetch_assoc($q_kategori)['total'];
         document.getElementById('main').classList.toggle('expanded');
     }
 
-     /* ── MODAL TAMBAH TRANSAKSI ── */
+    /* ── MODAL TAMBAH TRANSAKSI ── */
     function toggleSiswaTransaksi() {
         const jenis   = document.getElementById('selectJenis').value;
         const wrapCek = document.getElementById('wrapCekSiswaTransaksi');
